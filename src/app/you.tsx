@@ -1,13 +1,6 @@
-import { FoundationScreen } from '@/components/foundation-screen';
+import { ProfileScreen } from '@/features/profile/profile-screen';
 
-/** Reserves the preferences destination for the work-routine and privacy controls planned next. */
-export default function YouScreen() {
-  return (
-    <FoundationScreen
-      eyebrow="YOU"
-      title="Support that follows your rhythm"
-      description="Work hours, accessibility, privacy, and optional connections will be managed here."
-      foundationNote="Preference storage is prepared locally; controls arrive with onboarding."
-    />
-  );
+/** Routes the You tab to routine, prompt, and privacy details. */
+export default function YouRoute() {
+  return <ProfileScreen />;
 }

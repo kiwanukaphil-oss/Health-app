@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 import AppTabs from '@/components/app-tabs';
 import { Colors } from '@/constants/theme';
 import { AppDatabaseProvider } from '@/data/database/database-provider';
+import { AppDataProvider } from '@/state/app-data-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,9 +30,11 @@ export default function RootLayout() {
 
   return (
     <AppDatabaseProvider>
-      <ThemeProvider value={navigationTheme}>
-        <AppTabs />
-      </ThemeProvider>
+      <AppDataProvider>
+        <ThemeProvider value={navigationTheme}>
+          <AppTabs />
+        </ThemeProvider>
+      </AppDataProvider>
     </AppDatabaseProvider>
   );
 }

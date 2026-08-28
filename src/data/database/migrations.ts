@@ -93,4 +93,22 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
       );`,
     ],
   },
+  {
+    version: 2,
+    description: 'Add onboarding and personalization preferences',
+    statements: [
+      `ALTER TABLE user_preferences
+        ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0
+        CHECK (onboarding_complete IN (0, 1));`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN user_name TEXT NOT NULL DEFAULT '';`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN priorities_json TEXT NOT NULL DEFAULT '[]';`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN mobility_preference TEXT NOT NULL DEFAULT 'seated_or_standing'
+        CHECK (mobility_preference IN ('standing', 'seated_or_standing', 'seated'));`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN workdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5]';`,
+    ],
+  },
 ] as const;

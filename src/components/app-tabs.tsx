@@ -2,14 +2,17 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useAppData } from '@/state/app-data-context';
 
 /** Defines the four calm, product-level destinations using platform-native tab controls. */
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const { isLoading, profile } = useAppData();
 
   return (
     <NativeTabs
+      hidden={isLoading || !profile.onboardingComplete}
       backgroundColor={colors.background}
       iconColor={{ default: colors.textSecondary, selected: colors.primaryStrong }}
       indicatorColor={colors.backgroundSelected}

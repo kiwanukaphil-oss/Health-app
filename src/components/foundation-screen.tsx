@@ -1,3 +1,4 @@
+// Candidate for removal after Stage 2 review: all approved product routes now use real screens.
 import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

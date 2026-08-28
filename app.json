@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.kiwanukaphil.littlegains",
       "adaptiveIcon": {
         "backgroundColor": "#F0F3EA",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

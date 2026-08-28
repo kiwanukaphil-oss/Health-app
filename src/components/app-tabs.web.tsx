@@ -12,14 +12,18 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAppData } from '@/state/app-data-context';
 
 /** Provides the four-section product shell when previewing the mobile app on the web. */
 export default function AppTabs() {
+  const { isLoading, profile } = useAppData();
+  const shouldShowTabs = !isLoading && profile.onboardingComplete;
+
   return (
     <Tabs>
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
-        <CustomTabList>
+        <CustomTabList isHidden={!shouldShowTabs}>
           <TabTrigger name="today" href="/" asChild>
             <TabButton>Today</TabButton>
           </TabTrigger>
@@ -54,16 +58,15 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 /** Keeps the browser preview compact while preserving the product's main information architecture. */
-export function CustomTabList(props: TabListProps) {
+export function CustomTabList({ isHidden, ...props }: TabListProps & { isHidden: boolean }) {
   return (
-    <View {...props} style={styles.tabListContainer}>
+    <View {...props} style={[styles.tabListContainer, isHidden && styles.hiddenTabList]}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
           Little Gains
         </ThemedText>
 
         {props.children}
-
       </ThemedView>
     </View>
   );
@@ -77,6 +80,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
+  },
+  hiddenTabList: {
+    display: 'none',
   },
   innerContainer: {
     paddingVertical: Spacing.two,
