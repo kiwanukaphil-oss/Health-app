@@ -8,6 +8,7 @@ export type ThemedTextProps = TextProps & {
   themeColor?: ThemeColor;
 };
 
+/** Applies product typography and the active light or dark color palette consistently. */
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 
@@ -47,13 +48,15 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   title: {
-    fontSize: 48,
+    fontFamily: Fonts.rounded,
+    fontSize: 32,
     fontWeight: 600,
-    lineHeight: 52,
+    lineHeight: 38,
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
+    fontFamily: Fonts.rounded,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: 600,
   },
   link: {

@@ -36,6 +36,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Candidate for removal: local prototype verification output retained pending user approval.
+test-results/
+
+# Candidate for removal: empty create-expo-app staging directory retained pending user approval.
+little-gains-scaffold/
+
 example
 
 # generated native folders

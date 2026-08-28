@@ -178,3 +178,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
+// Candidate for removal: this untouched Expo sample route is retained until the user approves cleanup.

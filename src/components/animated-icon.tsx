@@ -8,6 +8,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
+/** Runs the template splash transition until approved Little Gains imagery replaces this candidate. */
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -95,6 +96,7 @@ const glowKeyframe = new Keyframe({
   },
 });
 
+/** Renders the untouched Expo sample icon while the production brand asset remains unapproved. */
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
@@ -146,3 +148,4 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
 });
+// Candidate for removal: the Expo sample splash animation remains only until final brand assets are approved.

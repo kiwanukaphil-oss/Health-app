@@ -54,6 +54,7 @@ const glowKeyframe = new Keyframe({
   },
 });
 
+/** Renders the untouched Expo sample icon while the production brand asset remains unapproved. */
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
@@ -106,3 +107,4 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
 });
+// Candidate for removal: the Expo sample splash animation remains only until final brand assets are approved.

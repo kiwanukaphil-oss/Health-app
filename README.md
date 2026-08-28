@@ -1,8 +1,17 @@
-# Welcome to your Expo app 👋
+# Little Gains
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Little Gains is a mobile-first companion for building sustainable health habits through small, repeatable actions. This repository currently contains the approved Stage 1 technical foundation; onboarding and habit features are intentionally deferred to Stage 2.
 
-## Get started
+## Foundation
+
+- Expo SDK 57, React Native, and TypeScript
+- File-based navigation for Today, Habits, Journey, and You
+- Calm, nature-led light and dark design tokens
+- Local-first SQLite schema with SQLCipher enabled for native builds
+- Device-bound database key stored through Expo SecureStore
+- Strict TypeScript and Expo ESLint checks
+
+## Development
 
 1. Install dependencies
 
@@ -10,47 +19,27 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Run the automated checks
+
+   ```bash
+   npm run typecheck
+   npm run lint
+   ```
+
+3. Start the app
 
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+The browser preview is useful for visual work, but encrypted persistence is native-only. SQLCipher requires a development build rather than Expo Go.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Available development targets include:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- Android emulator or physical development build
+- iOS simulator or physical development build
+- Web preview for the navigation and design shell
 
-## Get a fresh project
+## Stage boundary
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Stage 1 does not yet include onboarding, habit creation, notifications, Outlook access, health integrations, or production branding assets. Those remain subject to approval in later stages.
