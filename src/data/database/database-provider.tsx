@@ -1,10 +1,15 @@
 import * as SplashScreen from 'expo-splash-screen';
-import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
+import {
+  SQLiteProvider,
+  type SQLiteDatabase,
+  type SQLiteOpenOptions,
+} from 'expo-sqlite';
 import { type PropsWithChildren } from 'react';
 
 import { initializeLittleGainsDatabase } from '@/data/database/initialize-database';
 
 const DATABASE_NAME = 'little-gains.db';
+const DATABASE_OPEN_OPTIONS: SQLiteOpenOptions = { useNewConnection: true };
 
 async function prepareNativeDatabase(database: SQLiteDatabase) {
   await initializeLittleGainsDatabase(database);
@@ -22,7 +27,8 @@ export function AppDatabaseProvider({ children }: PropsWithChildren) {
     <SQLiteProvider
       databaseName={DATABASE_NAME}
       onError={reportDatabaseInitializationError}
-      onInit={prepareNativeDatabase}>
+      onInit={prepareNativeDatabase}
+      options={DATABASE_OPEN_OPTIONS}>
       {children}
     </SQLiteProvider>
   );

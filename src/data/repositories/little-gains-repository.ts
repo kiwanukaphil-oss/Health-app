@@ -111,8 +111,8 @@ export async function completeStoredOnboarding(
   const now = new Date().toISOString();
   const starterHabits = selectStarterHabits(onboardingInput.priorities);
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    await transaction.runAsync(
+  await database.withTransactionAsync(async () => {
+    await database.runAsync(
       `INSERT INTO user_preferences (
         id, workday_start, workday_end, lunch_window_start, lunch_window_end,
         prompt_intensity, color_scheme, created_at, updated_at, onboarding_complete,
@@ -142,7 +142,7 @@ export async function completeStoredOnboarding(
     );
 
     for (const [position, habit] of starterHabits.entries()) {
-      await transaction.runAsync(
+      await database.runAsync(
         `INSERT INTO habits (
           id, title, category, cue_type, cue_detail, minimum_target_value,
           standard_target_value, bonus_target_value, target_unit, is_active,
@@ -282,8 +282,8 @@ export async function loadOrCreateTodayPlan(
   const planDraft = createDailyPlanDraft(habits, energyLevel);
   const now = new Date().toISOString();
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    await transaction.runAsync(
+  await database.withTransactionAsync(async () => {
+    await database.runAsync(
       `INSERT INTO daily_plans (id, local_date, energy_level, status, created_at, updated_at)
         VALUES (?, ?, ?, 'active', ?, ?);`,
       planId,
@@ -293,7 +293,7 @@ export async function loadOrCreateTodayPlan(
       now,
     );
     for (const planItem of planDraft) {
-      await transaction.runAsync(
+      await database.runAsync(
         `INSERT INTO daily_plan_items
           (id, daily_plan_id, habit_id, position, target_level, status)
           VALUES (?, ?, ?, ?, ?, 'pending');`,
@@ -320,14 +320,14 @@ export async function updateStoredTodayEnergy(
   const targetLevel = selectTargetLevelForEnergy(energyLevel);
   const now = new Date().toISOString();
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    await transaction.runAsync(
+  await database.withTransactionAsync(async () => {
+    await database.runAsync(
       'UPDATE daily_plans SET energy_level = ?, updated_at = ? WHERE local_date = ?;',
       energyLevel,
       now,
       localDate,
     );
-    await transaction.runAsync(
+    await database.runAsync(
       `UPDATE daily_plan_items SET target_level = ?
         WHERE daily_plan_id = (SELECT id FROM daily_plans WHERE local_date = ?)
           AND status = 'pending';`,
@@ -352,13 +352,13 @@ export async function completeStoredPlanItem(database: SQLiteDatabase, planItemI
   if (!itemRow || itemRow.status === 'complete') return;
 
   const completedAt = new Date().toISOString();
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    await transaction.runAsync(
+  await database.withTransactionAsync(async () => {
+    await database.runAsync(
       `UPDATE daily_plan_items SET status = 'complete', completed_at = ? WHERE id = ?;`,
       completedAt,
       planItemId,
     );
-    await transaction.runAsync(
+    await database.runAsync(
       `INSERT OR IGNORE INTO habit_completions
         (id, habit_id, daily_plan_item_id, completion_level, completed_at)
         VALUES (?, ?, ?, ?, ?);`,
@@ -368,7 +368,7 @@ export async function completeStoredPlanItem(database: SQLiteDatabase, planItemI
       itemRow.target_level,
       completedAt,
     );
-    await transaction.runAsync(
+    await database.runAsync(
       `UPDATE daily_plans SET status = 'complete', updated_at = ?
         WHERE id = ? AND NOT EXISTS (
           SELECT 1 FROM daily_plan_items WHERE daily_plan_id = ? AND status = 'pending'

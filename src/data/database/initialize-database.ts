@@ -16,11 +16,11 @@ async function runPendingDatabaseMigrations(database: SQLiteDatabase) {
   );
 
   for (const migration of pendingMigrations) {
-    await database.withExclusiveTransactionAsync(async (transaction) => {
+    await database.withTransactionAsync(async () => {
       for (const statement of migration.statements) {
-        await transaction.execAsync(statement);
+        await database.execAsync(statement);
       }
-      await transaction.execAsync(`PRAGMA user_version = ${migration.version};`);
+      await database.execAsync(`PRAGMA user_version = ${migration.version};`);
     });
   }
 }
@@ -28,7 +28,7 @@ async function runPendingDatabaseMigrations(database: SQLiteDatabase) {
 /** Unlocks SQLCipher before enabling constraints and applying the latest local schema. */
 export async function initializeLittleGainsDatabase(database: SQLiteDatabase) {
   const databaseKey = await getOrCreateDatabaseKey();
-  await database.execAsync(`PRAGMA key = "x'${databaseKey}'";`);
+  await database.execAsync(`PRAGMA key = '${databaseKey}';`);
   await database.execAsync('PRAGMA foreign_keys = ON;');
   await database.execAsync('PRAGMA journal_mode = WAL;');
   await runPendingDatabaseMigrations(database);
