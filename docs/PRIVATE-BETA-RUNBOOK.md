@@ -12,11 +12,11 @@ Validate that Little Gains is dependable, understandable, accessible, and genuin
 
 - [x] TypeScript, lint, unit tests, Expo Doctor, web export, and Android release build pass.
 - [x] Existing encrypted data survives an upgrade from the previous approved build.
-- [ ] Fresh install and onboarding pass on a supported Android target.
+- [x] Fresh install and onboarding pass on a supported Android target.
 - [ ] TalkBack, large text, reduced motion, contrast, touch targets, and one-handed use are checked.
 - [ ] Notification permission denial, quiet hours, pause, Later, Bad time, Not today, and restart recovery pass.
 - [x] Data export opens a user-controlled share sheet and excludes keys and notification identifiers.
-- [ ] Confirmed deletion cancels reminders, clears app-owned data, and returns to onboarding.
+- [x] Confirmed deletion cancels reminders, clears app-owned data, and returns to onboarding.
 - [ ] At least one supported iOS device completes the core journey before the pilot includes iOS users.
 - [ ] The open Phase 3 one-week reminder trial and Phase 4 five-user usability tasks are recorded, even if they run alongside beta preparation.
 
@@ -74,6 +74,12 @@ Do not collect free-text health histories, calendar content, employer details, o
 | Android accessibility | TalkBack, large text, reduced motion, high contrast, one-handed use | Pending |
 | iOS supported floor | iOS 16.4+ fresh install, VoiceOver, notifications, export | Pending external device/build |
 | Web preview | Static export, keyboard navigation, responsive layout, temporary-data messaging | In progress |
+
+## Verification record
+
+On 29 August 2026, an isolated release build using a temporary `.qa` application ID completed all five onboarding steps on the connected Samsung device. Reminders created 10 package-specific scheduled alarms. Confirmed deletion removed every alarm, cleared the disposable profile, returned immediately to onboarding, and remained cleared after restart. The production package and its existing encrypted profile were verified separately and were not modified. The temporary QA package was then uninstalled.
+
+This pass also found and corrected a route-reset defect that had previously left the deleted profile on the You screen until restart.
 
 ## Performance budgets to validate
 

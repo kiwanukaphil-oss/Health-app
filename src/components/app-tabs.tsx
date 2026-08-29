@@ -2,6 +2,7 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useOnboardingRouteGuard } from '@/hooks/use-onboarding-route-guard';
 import { useAppData } from '@/state/app-data-context';
 
 /** Defines the four calm, product-level destinations using platform-native tab controls. */
@@ -9,6 +10,7 @@ export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
   const { isLoading, profile } = useAppData();
+  useOnboardingRouteGuard(isLoading, profile.onboardingComplete);
 
   return (
     <NativeTabs

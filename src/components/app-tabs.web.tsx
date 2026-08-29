@@ -12,12 +12,14 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useOnboardingRouteGuard } from '@/hooks/use-onboarding-route-guard';
 import { useAppData } from '@/state/app-data-context';
 
 /** Provides the four-section product shell when previewing the mobile app on the web. */
 export default function AppTabs() {
   const { isLoading, profile } = useAppData();
   const shouldShowTabs = !isLoading && profile.onboardingComplete;
+  useOnboardingRouteGuard(isLoading, profile.onboardingComplete);
 
   return (
     <Tabs>
