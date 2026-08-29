@@ -17,6 +17,7 @@ import {
   type ProfileUpdateInput,
   type ReminderSupportLevel,
 } from '@/domain/models';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
 
@@ -63,6 +64,7 @@ const timeFields: readonly {
 /** Edits the user's rhythm in two explicit steps so timing effects are visible before persistence. */
 export function ProfileEditor({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const theme = useTheme();
+  const isReducedMotionEnabled = useReducedMotion();
   const { profile, reminderPreferences, saveProfileChanges } = useAppData();
   const [draft, setDraft] = useState<ProfileUpdateInput>({
     name: profile.name,
@@ -129,7 +131,11 @@ export function ProfileEditor({ visible, onClose }: { visible: boolean; onClose:
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
+    <Modal
+      animationType={isReducedMotionEnabled ? 'none' : 'slide'}
+      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+      visible={visible}>
       <ScreenShell>
         <ProductHeader eyebrow={showPreview ? 'REVIEW CHANGES' : 'EDIT YOUR RHYTHM'} />
         <View style={styles.titleRow}>

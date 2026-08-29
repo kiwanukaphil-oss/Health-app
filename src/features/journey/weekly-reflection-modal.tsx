@@ -13,6 +13,7 @@ import {
   type ReflectionHelpfulness,
   type WeeklyReflectionInput,
 } from '@/domain/models';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
 
@@ -38,6 +39,7 @@ const adjustmentOptions: readonly { id: ReflectionAdjustment; label: string }[] 
 /** Captures four explicit weekly choices and leaves every resulting adaptation under user control. */
 export function WeeklyReflectionModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const theme = useTheme();
+  const isReducedMotionEnabled = useReducedMotion();
   const { latestWeeklyReflection, saveWeeklyReflection } = useAppData();
   const [draft, setDraft] = useState<WeeklyReflectionInput>({
     helpfulness: latestWeeklyReflection?.helpfulness ?? 'mixed',
@@ -62,7 +64,11 @@ export function WeeklyReflectionModal({ visible, onClose }: { visible: boolean; 
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
+    <Modal
+      animationType={isReducedMotionEnabled ? 'none' : 'slide'}
+      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+      visible={visible}>
       <ScreenShell>
         <ProductHeader eyebrow="TWO-MINUTE REFLECTION" />
         <View style={styles.titleRow}>

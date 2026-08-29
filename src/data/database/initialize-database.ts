@@ -7,6 +7,14 @@ type UserVersionRow = {
   user_version: number;
 };
 
+type DatabaseIntegrityRow = {
+  quick_check: string;
+};
+
+export function isDatabaseIntegrityHealthy(rows: readonly DatabaseIntegrityRow[]) {
+  return rows.length === 1 && rows[0]?.quick_check === 'ok';
+}
+
 /** Applies ordered schema changes atomically so interrupted upgrades cannot leave a partial database. */
 async function runPendingDatabaseMigrations(database: SQLiteDatabase) {
   const versionRow = await database.getFirstAsync<UserVersionRow>('PRAGMA user_version;');
@@ -31,5 +39,10 @@ export async function initializeLittleGainsDatabase(database: SQLiteDatabase) {
   await database.execAsync(`PRAGMA key = '${databaseKey}';`);
   await database.execAsync('PRAGMA foreign_keys = ON;');
   await database.execAsync('PRAGMA journal_mode = WAL;');
+  await database.execAsync('PRAGMA secure_delete = ON;');
   await runPendingDatabaseMigrations(database);
+  const integrityRows = await database.getAllAsync<DatabaseIntegrityRow>('PRAGMA quick_check;');
+  if (!isDatabaseIntegrityHealthy(integrityRows)) {
+    throw new Error('The encrypted local database did not pass its integrity check.');
+  }
 }

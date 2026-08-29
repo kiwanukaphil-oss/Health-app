@@ -12,6 +12,7 @@ import {
   type ReminderPreferences,
   type ReminderSupportLevel,
 } from '@/domain/models';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
 
@@ -51,6 +52,7 @@ function formatNextReminder(nextReminderAt: string | null) {
 /** Presents permission education and every reminder control without requiring a calendar or account. */
 export function ReminderCenter({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const theme = useTheme();
+  const isReducedMotionEnabled = useReducedMotion();
   const {
     reminderPreferences,
     notificationPermissionState,
@@ -110,7 +112,11 @@ export function ReminderCenter({ visible, onClose }: { visible: boolean; onClose
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
+    <Modal
+      animationType={isReducedMotionEnabled ? 'none' : 'slide'}
+      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+      visible={visible}>
       <ScreenShell>
         <ProductHeader eyebrow="HELPFUL REMINDERS" />
         <View style={styles.titleRow}>

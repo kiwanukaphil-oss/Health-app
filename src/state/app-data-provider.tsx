@@ -6,8 +6,10 @@ import {
   completeStoredOnboarding,
   completeStoredPlanItem,
   DEFAULT_REMINDER_PREFERENCES,
+  deleteStoredLocalData,
   loadBadTimeCounts,
   loadAppSnapshot,
+  loadPortableDataExport,
   recordStoredPromptDelivery,
   recordStoredPromptResponse,
   replaceStoredReminderSchedule,
@@ -47,6 +49,7 @@ import {
   requestReminderPermission,
   schedulePlannedReminder,
 } from '@/services/reminder-notifications';
+import { sharePortableLocalData } from '@/services/local-data-portability';
 import { AppDataContext } from '@/state/app-data-context';
 
 const INITIAL_SNAPSHOT: AppSnapshot = {
@@ -330,6 +333,23 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     ],
   );
 
+  const exportLocalData = useCallback(async () => {
+    const portableData = await loadPortableDataExport(database);
+    return sharePortableLocalData(JSON.stringify(portableData, null, 2));
+  }, [database]);
+
+  /** Removes all user-owned rows only after the in-app confirmation and resets every runtime cache. */
+  const deleteAllLocalData = useCallback(async () => {
+    await cancelScheduledReminderNotifications();
+    await deleteStoredLocalData(database);
+    handledResponseKeys.current.clear();
+    setReminderRuntime({
+      ...INITIAL_REMINDER_RUNTIME,
+      permissionState: await getReminderPermissionState(),
+    });
+    await refreshAppSnapshot();
+  }, [database, refreshAppSnapshot]);
+
   /** Applies one-tap notification choices idempotently and keeps deferred prompts inside allowed hours. */
   const applyReminderResponse = useCallback(async (response: ReminderNotificationResponse) => {
     const responseByAction: Readonly<Record<string, PromptResponse | undefined>> = {
@@ -423,6 +443,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      exportLocalData,
+      deleteAllLocalData,
     }),
     [
       snapshot,
@@ -440,6 +462,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      exportLocalData,
+      deleteAllLocalData,
     ],
   );
 

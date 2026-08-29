@@ -13,6 +13,7 @@ import {
   resolveHabitTargetValue,
 } from '@/domain/daily-planner';
 import { type DailyPlanItem, type MobilityPreference } from '@/domain/models';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useTheme } from '@/hooks/use-theme';
 
 type GuidedActivityModalProps = {
@@ -36,6 +37,7 @@ export function GuidedActivityModal({
   onComplete,
 }: GuidedActivityModalProps) {
   const theme = useTheme();
+  const isReducedMotionEnabled = useReducedMotion();
   const targetValue = resolveHabitTargetValue(item.habit, item.targetLevel);
   const initialSeconds = item.habit.targetUnit === 'minutes' ? targetValue * 60 : 0;
   const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds);
@@ -74,12 +76,20 @@ export function GuidedActivityModal({
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
+    <Modal
+      animationType={isReducedMotionEnabled ? 'none' : 'slide'}
+      onRequestClose={onClose}
+      presentationStyle="pageSheet">
       <ThemedView style={styles.modalPage}>
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.headerRow}>
             <ProductHeader eyebrow="GUIDED SMALL WIN" />
-            <Pressable accessibilityLabel="Close activity" accessibilityRole="button" onPress={onClose}>
+            <Pressable
+              accessibilityLabel="Close activity"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.closeButton}>
               <ThemedText type="smallBold" themeColor="textSecondary">Close</ThemedText>
             </Pressable>
           </View>
@@ -92,7 +102,10 @@ export function GuidedActivityModal({
 
             {initialSeconds > 0 ? (
               <View
+                accessible
                 accessibilityLabel={`${remainingSeconds} seconds remaining`}
+                accessibilityLiveRegion="polite"
+                accessibilityRole="timer"
                 style={[
                   styles.timerCircle,
                   { backgroundColor: theme.backgroundSelected, borderColor: theme.primary },
@@ -154,6 +167,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  closeButton: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   activityContent: {
     flex: 1,

@@ -1,45 +1,69 @@
 # Little Gains
 
-Little Gains is a mobile-first companion for building sustainable health habits through small, repeatable actions. This repository currently contains the approved Stage 1 technical foundation; onboarding and habit features are intentionally deferred to Stage 2.
+Little Gains is a mobile-first, local-first companion for building sustainable health habits through small actions that fit a work-from-home day.
 
-## Foundation
+## Current product
 
-- Expo SDK 57, React Native, and TypeScript
-- File-based navigation for Today, Habits, Journey, and You
-- Calm, nature-led light and dark design tokens
-- Local-first SQLite schema with SQLCipher enabled for native builds
-- Device-bound database key stored through Expo SecureStore
-- Strict TypeScript and Expo ESLint checks
+- Calm nature-led onboarding, Today, Habits, Journey, and You experiences
+- Energy-aware minimum, standard, and bonus habit versions
+- Local reminders with quiet hours, daily caps, pause controls, and respectful actions
+- Editable routine, weekly reflection, explainable suggestions, and recovery choices
+- SQLCipher-encrypted native persistence with a device-bound SecureStore key
+- User-controlled JSON export and confirmed local-data deletion
+- No account, calendar connection, advertising profile, or cloud analytics
 
 ## Development
 
-1. Install dependencies
+Install dependencies and run the complete local quality gate:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npm run typecheck
+npm run lint
+npm test
+npx expo-doctor
+```
 
-2. Run the automated checks
+Start a development target:
 
-   ```bash
-   npm run typecheck
-   npm run lint
-   ```
+```bash
+npx expo start
+```
 
-3. Start the app
+The browser preview is useful for layout work, but its data is intentionally temporary. SQLCipher and notification behavior require a native development or release build.
 
-   ```bash
-   npx expo start
-   ```
+## Native verification
 
-The browser preview is useful for visual work, but encrypted persistence is native-only. SQLCipher requires a development build rather than Expo Go.
+Android debug build:
 
-Available development targets include:
+```bash
+npx expo run:android
+```
 
-- Android emulator or physical development build
-- iOS simulator or physical development build
-- Web preview for the navigation and design shell
+Android production-like release build from the generated native project:
 
-## Stage boundary
+```bash
+cd android
+./gradlew app:assembleRelease
+```
 
-Stage 1 does not yet include onboarding, habit creation, notifications, Outlook access, health integrations, or production branding assets. Those remain subject to approval in later stages.
+Expo SDK 57 targets Android 7+ and iOS 16.4+. iOS build and VoiceOver verification require macOS/Xcode or EAS Build plus a physical iOS device.
+
+## Private beta preparation
+
+The `preview` EAS profile produces an internally distributed Android APK and an ad hoc iOS build when the required Expo and Apple credentials are connected:
+
+```bash
+npx eas-cli@latest build --profile preview --platform android
+npx eas-cli@latest build --profile preview --platform ios
+```
+
+Creating an EAS project, credentials, or external builds is intentionally a separate approved action. Pilot operations, privacy inventory, device coverage, and exit gates are documented in `docs/PRIVATE-BETA-RUNBOOK.md`.
+
+## Open gates
+
+- Complete the one-week personal reminder trial.
+- Validate routine editing and weekly reflection with five representative work-from-home users.
+- Run TalkBack, large-text, reduced-motion, and target Android-version checks.
+- Run the full core journey on at least one supported iOS device.
+- Approve credentials and controlled private-beta distribution before creating external builds.

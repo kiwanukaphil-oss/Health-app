@@ -26,6 +26,7 @@ import {
   type ReminderSupportLevel,
   type WeeklyReflectionInput,
 } from '@/domain/models';
+import { sharePortableLocalData } from '@/services/local-data-portability';
 import { AppDataContext } from '@/state/app-data-context';
 
 const initialHabits = HABIT_LIBRARY.map((habit, position) =>
@@ -281,6 +282,19 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }));
   }, []);
 
+  const exportLocalData = useCallback(async () => (
+    sharePortableLocalData(JSON.stringify({
+      exportFormat: 'little-gains-browser-preview-data',
+      exportVersion: 1,
+      exportedAt: new Date().toISOString(),
+      ...snapshot,
+    }, null, 2))
+  ), [snapshot]);
+
+  const deleteAllLocalData = useCallback(async () => {
+    setSnapshot(INITIAL_WEB_SNAPSHOT);
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       ...snapshot,
@@ -302,6 +316,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      exportLocalData,
+      deleteAllLocalData,
     }),
     [
       snapshot,
@@ -316,6 +332,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      exportLocalData,
+      deleteAllLocalData,
     ],
   );
 

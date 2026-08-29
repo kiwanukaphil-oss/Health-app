@@ -42,7 +42,7 @@ export function SelectionChip({
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 42,
+    minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderWidth: 1,

@@ -8,7 +8,8 @@
     "scheme": "littlegains",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.kiwanukaphil.littlegains"
     },
     "android": {
       "package": "com.kiwanukaphil.littlegains",
@@ -52,7 +53,8 @@
         {
           "configureAndroidBackup": true
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

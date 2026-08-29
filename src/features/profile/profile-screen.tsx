@@ -7,6 +7,7 @@ import { ProductHeader } from '@/components/ui/product-header';
 import { ScreenShell } from '@/components/ui/screen-shell';
 import { Radii, Spacing } from '@/constants/theme';
 import { ReminderCenter } from '@/features/reminders/reminder-center';
+import { DataSafetyModal } from '@/features/profile/data-safety-modal';
 import { ProfileEditor } from '@/features/profile/profile-editor';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
@@ -46,6 +47,7 @@ export function ProfileScreen() {
   } = useAppData();
   const [reminderCenterVisible, setReminderCenterVisible] = useState(false);
   const [profileEditorVisible, setProfileEditorVisible] = useState(false);
+  const [dataSafetyVisible, setDataSafetyVisible] = useState(false);
   const workdayText = profile.workdays.map((day) => weekdayLabels[day]).join(', ');
   const reminderStatus = notificationPermissionState === 'unavailable'
     ? 'Available on mobile'
@@ -112,6 +114,7 @@ export function ProfileScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             Your local database is encrypted on native builds. The browser preview is temporary and resets when refreshed.
           </ThemedText>
+          <ActionButton label="Review data & safety" onPress={() => setDataSafetyVisible(true)} />
         </SettingsSection>
 
         <View style={[styles.safetyCard, { backgroundColor: theme.surfaceWarm }]}>
@@ -131,6 +134,9 @@ export function ProfileScreen() {
       ) : null}
       {profileEditorVisible ? (
         <ProfileEditor visible onClose={() => setProfileEditorVisible(false)} />
+      ) : null}
+      {dataSafetyVisible ? (
+        <DataSafetyModal visible onClose={() => setDataSafetyVisible(false)} />
       ) : null}
     </>
   );

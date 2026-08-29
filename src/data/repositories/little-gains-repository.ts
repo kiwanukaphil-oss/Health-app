@@ -71,6 +71,29 @@ type CompletionRow = {
   completed_at: string;
 };
 
+type PortablePromptRow = {
+  habit_id: string | null;
+  scheduled_for: string;
+  delivered_at: string | null;
+  response: PromptResponse | null;
+  family: ReminderFamily | null;
+  calendar_aware: number;
+  created_at: string;
+};
+
+type PortableReflectionRow = {
+  week_start: string;
+  reminder_feedback: string | null;
+  energy_rating: number | null;
+  difficulty_rating: string | null;
+  adjustment_choice: string | null;
+  suggestion_code: string | null;
+  suggestion_reason: string | null;
+  suggestion_status: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
 type ReminderPreferenceRow = {
   reminders_enabled: number;
   reminder_support_level: ReminderPreferences['supportLevel'];
@@ -790,4 +813,63 @@ export async function loadAppSnapshot(database: SQLiteDatabase): Promise<AppSnap
     adaptationSuggestion: weeklyState.suggestion,
     journeyInsights,
   };
+}
+
+/** Builds a readable user-owned export while excluding encryption keys and OS notification identifiers. */
+export async function loadPortableDataExport(database: SQLiteDatabase) {
+  const [snapshot, completions, prompts, reflections] = await Promise.all([
+    loadAppSnapshot(database),
+    database.getAllAsync<CompletionRow>(
+      `SELECT habit_id, completion_level, completed_at
+        FROM habit_completions ORDER BY completed_at ASC;`,
+    ),
+    database.getAllAsync<PortablePromptRow>(
+      `SELECT habit_id, scheduled_for, delivered_at, response, family,
+        calendar_aware, created_at FROM prompt_events ORDER BY created_at ASC;`,
+    ),
+    database.getAllAsync<PortableReflectionRow>(
+      `SELECT week_start, reminder_feedback, energy_rating, difficulty_rating,
+        adjustment_choice, suggestion_code, suggestion_reason, suggestion_status,
+        created_at, updated_at FROM weekly_reflections ORDER BY week_start ASC;`,
+    ),
+  ]);
+
+  return {
+    exportFormat: 'little-gains-local-data',
+    exportVersion: 1,
+    exportedAt: new Date().toISOString(),
+    profile: snapshot.profile,
+    reminderPreferences: snapshot.reminderPreferences,
+    habits: snapshot.habits.map(({ id, title, category, isActive }) => ({
+      id,
+      title,
+      category,
+      isActive,
+    })),
+    cumulativeProgress: snapshot.progress,
+    completions,
+    promptHistory: prompts.map((prompt) => ({
+      ...prompt,
+      calendar_aware: prompt.calendar_aware === 1,
+    })),
+    weeklyReflections: reflections,
+    calendarConnected: false,
+  };
+}
+
+/** Securely clears app-owned rows, checkpoints the WAL, and compacts the open encrypted database. */
+export async function deleteStoredLocalData(database: SQLiteDatabase) {
+  await database.execAsync('PRAGMA secure_delete = ON;');
+  await database.withTransactionAsync(async () => {
+    await database.execAsync('DELETE FROM prompt_events;');
+    await database.execAsync('DELETE FROM weekly_reflections;');
+    await database.execAsync('DELETE FROM habit_completions;');
+    await database.execAsync('DELETE FROM daily_plan_items;');
+    await database.execAsync('DELETE FROM daily_plans;');
+    await database.execAsync('DELETE FROM calendar_busy_blocks;');
+    await database.execAsync('DELETE FROM habits;');
+    await database.execAsync('DELETE FROM user_preferences;');
+  });
+  await database.execAsync('PRAGMA wal_checkpoint(TRUNCATE);');
+  await database.execAsync('VACUUM;');
 }
