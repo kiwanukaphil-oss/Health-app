@@ -35,6 +35,13 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "color": "#416B4B",
+          "defaultChannel": "little-gains-reminders"
+        }
+      ],
+      [
         "expo-sqlite",
         {
           "useSQLCipher": true

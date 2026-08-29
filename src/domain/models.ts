@@ -5,6 +5,10 @@ export type GoalId = 'sit_less' | 'move_more' | 'mobility' | 'strength' | 'energ
 export type MobilityPreference = 'standing' | 'seated_or_standing' | 'seated';
 export type HabitCategory = 'sitting' | 'walking' | 'mobility' | 'strength' | 'recovery';
 export type TargetUnit = 'minutes' | 'repetitions' | 'breaths';
+export type ReminderSupportLevel = 'gentle' | 'balanced' | 'supportive';
+export type ReminderFamily = 'workday' | 'lunch' | 'afternoon';
+export type NotificationPermissionState = 'undetermined' | 'granted' | 'denied' | 'unavailable';
+export type PromptResponse = 'done' | 'later' | 'not_today' | 'bad_time';
 
 export type HabitDefinition = {
   id: string;
@@ -68,9 +72,29 @@ export type ProgressSummary = {
   recentDays: ProgressDay[];
 };
 
+export type ReminderPreferences = {
+  enabled: boolean;
+  supportLevel: ReminderSupportLevel;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  pausedUntil: string | null;
+  enabledFamilies: ReminderFamily[];
+};
+
+export type PlannedReminder = {
+  eventId: string;
+  family: ReminderFamily;
+  habitId: string;
+  planItemId: string | null;
+  scheduledFor: string;
+  title: string;
+  body: string;
+};
+
 export type AppSnapshot = {
   profile: UserProfile;
   habits: Habit[];
   todayPlan: DailyPlan | null;
   progress: ProgressSummary;
+  reminderPreferences: ReminderPreferences;
 };

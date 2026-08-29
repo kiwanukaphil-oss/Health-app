@@ -1,18 +1,45 @@
-import { useSQLiteContext } from 'expo-sqlite';
-import { type PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
+import { type SQLiteDatabase, useSQLiteContext } from 'expo-sqlite';
+import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  completeStoredHabitFromPrompt,
   completeStoredOnboarding,
   completeStoredPlanItem,
+  DEFAULT_REMINDER_PREFERENCES,
+  loadBadTimeCounts,
   loadAppSnapshot,
+  recordStoredPromptDelivery,
+  recordStoredPromptResponse,
+  replaceStoredReminderSchedule,
+  storeScheduledReminder,
   updateStoredHabitActivation,
+  updateStoredReminderPreferences,
   updateStoredTodayEnergy,
 } from '@/data/repositories/little-gains-repository';
+import { createDeferredReminderDate, createReminderSchedule } from '@/domain/reminder-scheduler';
 import {
   type AppSnapshot,
   type EnergyLevel,
+  type NotificationPermissionState,
   type OnboardingInput,
+  type PlannedReminder,
+  type PromptResponse,
+  type ReminderPreferences,
 } from '@/domain/models';
+import {
+  addReminderDeliveryListener,
+  addReminderResponseListener,
+  cancelScheduledReminderNotifications,
+  clearLastReminderResponse,
+  getLastReminderResponse,
+  getReminderPermissionState,
+  getScheduledReminderSummary,
+  initializeReminderNotifications,
+  REMINDER_ACTIONS,
+  type ReminderNotificationResponse,
+  requestReminderPermission,
+  schedulePlannedReminder,
+} from '@/services/reminder-notifications';
 import { AppDataContext } from '@/state/app-data-context';
 
 const INITIAL_SNAPSHOT: AppSnapshot = {
@@ -31,7 +58,64 @@ const INITIAL_SNAPSHOT: AppSnapshot = {
   habits: [],
   todayPlan: null,
   progress: { activeMinutes: 0, sittingBreaks: 0, totalCompletions: 0, recentDays: [] },
+  reminderPreferences: DEFAULT_REMINDER_PREFERENCES,
 };
+
+type ReminderRuntimeState = {
+  permissionState: NotificationPermissionState;
+  scheduledCount: number;
+  nextReminderAt: string | null;
+  isSyncing: boolean;
+  errorMessage: string | null;
+};
+
+const INITIAL_REMINDER_RUNTIME: ReminderRuntimeState = {
+  permissionState: 'undetermined',
+  scheduledCount: 0,
+  nextReminderAt: null,
+  isSyncing: false,
+  errorMessage: null,
+};
+
+/** Reconciles the operating-system queue from encrypted preferences instead of trusting stale identifiers. */
+async function reconcileNativeReminderSchedule(
+  database: SQLiteDatabase,
+  snapshot: AppSnapshot,
+) {
+  const permissionState = await getReminderPermissionState();
+  if (!snapshot.reminderPreferences.enabled || permissionState !== 'granted') {
+    await cancelScheduledReminderNotifications();
+    await replaceStoredReminderSchedule(database, []);
+    return { permissionState, scheduledCount: 0, nextReminderAt: null };
+  }
+
+  await initializeReminderNotifications();
+  const badTimeCounts = await loadBadTimeCounts(database);
+  const plannedReminders = createReminderSchedule({
+    now: new Date(),
+    profile: snapshot.profile,
+    habits: snapshot.habits,
+    todayPlan: snapshot.todayPlan,
+    preferences: snapshot.reminderPreferences,
+    badTimeCounts,
+  });
+  await cancelScheduledReminderNotifications();
+
+  try {
+    const storedReminders = [];
+    for (const reminder of plannedReminders) {
+      const notificationIdentifier = await schedulePlannedReminder(reminder);
+      storedReminders.push({ ...reminder, notificationIdentifier });
+    }
+    await replaceStoredReminderSchedule(database, storedReminders);
+    const summary = await getScheduledReminderSummary();
+    return { permissionState, scheduledCount: summary.count, nextReminderAt: summary.nextReminderAt };
+  } catch (error) {
+    await cancelScheduledReminderNotifications();
+    await replaceStoredReminderSchedule(database, []);
+    throw error;
+  }
+}
 
 /** Bridges screens to encrypted repositories and reloads a coherent snapshot after every write. */
 export function AppDataProvider({ children }: PropsWithChildren) {
@@ -39,6 +123,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [snapshot, setSnapshot] = useState<AppSnapshot>(INITIAL_SNAPSHOT);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [reminderRuntime, setReminderRuntime] = useState(INITIAL_REMINDER_RUNTIME);
+  const handledResponseKeys = useRef(new Set<string>());
 
   const refreshAppSnapshot = useCallback(async () => {
     try {
@@ -52,6 +138,44 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       setIsLoading(false);
     }
   }, [database]);
+
+  const reminderScheduleKey = useMemo(
+    () => JSON.stringify({
+      profile: snapshot.profile,
+      activeHabitIds: snapshot.habits.filter((habit) => habit.isActive).map((habit) => habit.id),
+      preferences: snapshot.reminderPreferences,
+    }),
+    [snapshot.profile, snapshot.habits, snapshot.reminderPreferences],
+  );
+
+  /** Keeps the native queue aligned after launch, preference changes, restarts, or timezone refreshes. */
+  useEffect(() => {
+    if (isLoading) return;
+    let isMounted = true;
+    Promise.resolve()
+      .then(() => {
+        if (isMounted) {
+          setReminderRuntime((current) => ({ ...current, isSyncing: true, errorMessage: null }));
+        }
+        return reconcileNativeReminderSchedule(database, snapshot);
+      })
+      .then((result) => {
+        if (isMounted) setReminderRuntime({ ...result, isSyncing: false, errorMessage: null });
+      })
+      .catch((error: unknown) => {
+        console.error('Little Gains could not reconcile local reminders.', error);
+        if (isMounted) {
+          setReminderRuntime((current) => ({
+            ...current,
+            isSyncing: false,
+            errorMessage: 'Reminders could not be prepared. Your habit plan is still available.',
+          }));
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [database, isLoading, reminderScheduleKey, snapshot]);
 
   /** Loads once per database instance and ignores a late result if the provider has already unmounted. */
   useEffect(() => {
@@ -113,15 +237,150 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [database, refreshAppSnapshot],
   );
 
+  const requestReminderPermissionAndEnable = useCallback(async () => {
+    const permissionState = await requestReminderPermission();
+    setReminderRuntime((current) => ({ ...current, permissionState }));
+    if (permissionState === 'granted') {
+      await updateStoredReminderPreferences(database, {
+        ...snapshot.reminderPreferences,
+        enabled: true,
+        pausedUntil: null,
+      });
+      await refreshAppSnapshot();
+    }
+    return permissionState;
+  }, [database, refreshAppSnapshot, snapshot.reminderPreferences]);
+
+  const saveReminderPreferences = useCallback(
+    async (preferences: ReminderPreferences) => {
+      await updateStoredReminderPreferences(database, preferences);
+      await refreshAppSnapshot();
+    },
+    [database, refreshAppSnapshot],
+  );
+
+  const pauseRemindersForToday = useCallback(async () => {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    await updateStoredReminderPreferences(database, {
+      ...snapshot.reminderPreferences,
+      pausedUntil: endOfToday.toISOString(),
+    });
+    await refreshAppSnapshot();
+  }, [database, refreshAppSnapshot, snapshot.reminderPreferences]);
+
+  const setRemindersEnabled = useCallback(
+    async (enabled: boolean) => {
+      if (enabled && reminderRuntime.permissionState !== 'granted') {
+        await requestReminderPermissionAndEnable();
+        return;
+      }
+      await updateStoredReminderPreferences(database, {
+        ...snapshot.reminderPreferences,
+        enabled,
+        pausedUntil: enabled ? null : snapshot.reminderPreferences.pausedUntil,
+      });
+      await refreshAppSnapshot();
+    },
+    [
+      database,
+      refreshAppSnapshot,
+      reminderRuntime.permissionState,
+      requestReminderPermissionAndEnable,
+      snapshot.reminderPreferences,
+    ],
+  );
+
+  /** Applies one-tap notification choices idempotently and keeps deferred prompts inside allowed hours. */
+  const applyReminderResponse = useCallback(async (response: ReminderNotificationResponse) => {
+    const responseByAction: Readonly<Record<string, PromptResponse | undefined>> = {
+      [REMINDER_ACTIONS.done]: 'done',
+      [REMINDER_ACTIONS.later]: 'later',
+      [REMINDER_ACTIONS.badTime]: 'bad_time',
+      [REMINDER_ACTIONS.notToday]: 'not_today',
+    };
+    const promptResponse = responseByAction[response.actionIdentifier];
+    if (!promptResponse || !response.eventId) return;
+    const responseKey = `${response.eventId}:${response.actionIdentifier}`;
+    if (handledResponseKeys.current.has(responseKey)) return;
+    handledResponseKeys.current.add(responseKey);
+
+    await recordStoredPromptResponse(database, response.eventId, promptResponse);
+    if (promptResponse === 'done' && response.habitId) {
+      await completeStoredHabitFromPrompt(database, response.habitId);
+      await refreshAppSnapshot();
+    }
+    if (
+      (promptResponse === 'later' || promptResponse === 'bad_time') &&
+      response.habitId &&
+      response.family
+    ) {
+      const deferredDate = createDeferredReminderDate({
+        now: new Date(),
+        delayMinutes: promptResponse === 'later' ? 30 : 60,
+        profile: snapshot.profile,
+        preferences: snapshot.reminderPreferences,
+      });
+      if (deferredDate) {
+        const deferredReminder: PlannedReminder = {
+          eventId: `${response.eventId}_${promptResponse}_${deferredDate.getTime()}`,
+          family: response.family,
+          habitId: response.habitId,
+          planItemId: response.planItemId,
+          scheduledFor: deferredDate.toISOString(),
+          title: response.title,
+          body: promptResponse === 'later' ? 'Ready for the small version now?' : 'Trying a calmer time for this small win.',
+        };
+        const notificationIdentifier = await schedulePlannedReminder(deferredReminder);
+        await storeScheduledReminder(database, { ...deferredReminder, notificationIdentifier });
+      }
+    }
+    const summary = await getScheduledReminderSummary();
+    setReminderRuntime((current) => ({
+      ...current,
+      scheduledCount: summary.count,
+      nextReminderAt: summary.nextReminderAt,
+    }));
+  }, [database, refreshAppSnapshot, snapshot.profile, snapshot.reminderPreferences]);
+
+  /** Registers foreground delivery, live actions, and the most recent cold-start response once per snapshot. */
+  useEffect(() => {
+    const deliverySubscription = addReminderDeliveryListener((eventId) => {
+      void recordStoredPromptDelivery(database, eventId);
+    });
+    const responseSubscription = addReminderResponseListener((response) => {
+      void applyReminderResponse(response);
+    });
+    const lastResponse = getLastReminderResponse();
+    if (lastResponse) {
+      void Promise.resolve()
+        .then(() => applyReminderResponse(lastResponse))
+        .finally(clearLastReminderResponse);
+    }
+    return () => {
+      deliverySubscription.remove();
+      responseSubscription.remove();
+    };
+  }, [applyReminderResponse, database]);
+
   const contextValue = useMemo(
     () => ({
       ...snapshot,
       isLoading,
       errorMessage,
+      notificationPermissionState: reminderRuntime.permissionState,
+      scheduledReminderCount: reminderRuntime.scheduledCount,
+      nextReminderAt: reminderRuntime.nextReminderAt,
+      isReminderSyncing: reminderRuntime.isSyncing,
+      reminderErrorMessage: reminderRuntime.errorMessage,
       completeOnboarding,
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      requestReminderPermissionAndEnable,
+      saveReminderPreferences,
+      pauseRemindersForToday,
+      setRemindersEnabled,
     }),
     [
       snapshot,
@@ -131,6 +390,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      reminderRuntime,
+      requestReminderPermissionAndEnable,
+      saveReminderPreferences,
+      pauseRemindersForToday,
+      setRemindersEnabled,
     ],
   );
 

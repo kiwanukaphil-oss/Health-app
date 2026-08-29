@@ -111,4 +111,31 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
         ADD COLUMN workdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5]';`,
     ],
   },
+  {
+    version: 3,
+    description: 'Add local reminder preferences and notification reconciliation metadata',
+    statements: [
+      `ALTER TABLE user_preferences
+        ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 0
+        CHECK (reminders_enabled IN (0, 1));`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN reminder_support_level TEXT NOT NULL DEFAULT 'gentle'
+        CHECK (reminder_support_level IN ('gentle', 'balanced', 'supportive'));`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN quiet_hours_start TEXT NOT NULL DEFAULT '20:30';`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN quiet_hours_end TEXT NOT NULL DEFAULT '08:00';`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN reminder_families_json TEXT NOT NULL DEFAULT '["workday","lunch","afternoon"]';`,
+      `ALTER TABLE user_preferences
+        ADD COLUMN reminders_paused_until TEXT;`,
+      `ALTER TABLE prompt_events ADD COLUMN notification_identifier TEXT;`,
+      `ALTER TABLE prompt_events ADD COLUMN family TEXT
+        CHECK (family IN ('workday', 'lunch', 'afternoon'));`,
+      `ALTER TABLE prompt_events ADD COLUMN daily_plan_item_id TEXT
+        REFERENCES daily_plan_items(id) ON DELETE SET NULL;`,
+      `CREATE INDEX IF NOT EXISTS prompt_events_schedule_index
+        ON prompt_events(scheduled_for, response);`,
+    ],
+  },
 ] as const;

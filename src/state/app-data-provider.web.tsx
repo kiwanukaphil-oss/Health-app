@@ -13,7 +13,9 @@ import {
   type DailyPlan,
   type EnergyLevel,
   type Habit,
+  type NotificationPermissionState,
   type OnboardingInput,
+  type ReminderPreferences,
 } from '@/domain/models';
 import { AppDataContext } from '@/state/app-data-context';
 
@@ -44,6 +46,14 @@ const INITIAL_WEB_SNAPSHOT: AppSnapshot = {
       localDate,
       completionCount: 0,
     })),
+  },
+  reminderPreferences: {
+    enabled: false,
+    supportLevel: 'gentle',
+    quietHoursStart: '20:30',
+    quietHoursEnd: '08:00',
+    pausedUntil: null,
+    enabledFamilies: ['workday', 'lunch', 'afternoon'],
   },
 };
 
@@ -165,17 +175,66 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [snapshot.habits],
   );
 
+  const requestReminderPermissionAndEnable = useCallback(async () => (
+    'unavailable' as NotificationPermissionState
+  ), []);
+
+  const saveReminderPreferences = useCallback(async (preferences: ReminderPreferences) => {
+    setSnapshot((currentSnapshot) => ({
+      ...currentSnapshot,
+      reminderPreferences: { ...preferences, enabled: false },
+    }));
+  }, []);
+
+  const pauseRemindersForToday = useCallback(async () => {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    setSnapshot((currentSnapshot) => ({
+      ...currentSnapshot,
+      reminderPreferences: {
+        ...currentSnapshot.reminderPreferences,
+        pausedUntil: endOfToday.toISOString(),
+      },
+    }));
+  }, []);
+
+  const setRemindersEnabled = useCallback(async (_enabled: boolean) => {
+    setSnapshot((currentSnapshot) => ({
+      ...currentSnapshot,
+      reminderPreferences: { ...currentSnapshot.reminderPreferences, enabled: false },
+    }));
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       ...snapshot,
       isLoading: false,
       errorMessage: null,
+      notificationPermissionState: 'unavailable' as const,
+      scheduledReminderCount: 0,
+      nextReminderAt: null,
+      isReminderSyncing: false,
+      reminderErrorMessage: null,
       completeOnboarding,
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      requestReminderPermissionAndEnable,
+      saveReminderPreferences,
+      pauseRemindersForToday,
+      setRemindersEnabled,
     }),
-    [snapshot, completeOnboarding, updateTodayEnergy, completePlanItem, updateHabitActivation],
+    [
+      snapshot,
+      completeOnboarding,
+      updateTodayEnergy,
+      completePlanItem,
+      updateHabitActivation,
+      requestReminderPermissionAndEnable,
+      saveReminderPreferences,
+      pauseRemindersForToday,
+      setRemindersEnabled,
+    ],
   );
 
   return <AppDataContext.Provider value={contextValue}>{children}</AppDataContext.Provider>;

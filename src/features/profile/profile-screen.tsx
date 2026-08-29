@@ -1,10 +1,12 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { ActionButton } from '@/components/ui/action-button';
 import { ProductHeader } from '@/components/ui/product-header';
 import { ScreenShell } from '@/components/ui/screen-shell';
 import { Radii, Spacing } from '@/constants/theme';
+import { ReminderCenter } from '@/features/reminders/reminder-center';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
 
@@ -21,63 +23,93 @@ const weekdayLabels: Readonly<Record<number, string>> = {
 /** Makes the app's timing assumptions, privacy posture, and optional calendar boundary explicit. */
 export function ProfileScreen() {
   const theme = useTheme();
-  const { profile } = useAppData();
+  const {
+    profile,
+    reminderPreferences,
+    notificationPermissionState,
+    nextReminderAt,
+  } = useAppData();
+  const [reminderCenterVisible, setReminderCenterVisible] = useState(false);
   const workdayText = profile.workdays.map((day) => weekdayLabels[day]).join(', ');
+  const reminderStatus = notificationPermissionState === 'unavailable'
+    ? 'Available on mobile'
+    : notificationPermissionState === 'denied'
+      ? 'Blocked in system settings'
+      : reminderPreferences.enabled
+        ? 'On'
+        : 'Off';
 
   return (
-    <ScreenShell>
-      <ProductHeader eyebrow="YOU" />
-      <View style={styles.introduction}>
-        <ThemedText type="title">
-          {profile.name ? `${profile.name}'s rhythm` : 'Your rhythm'}
-        </ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Little Gains works from approximate windows and habits tied to moments you already notice.
-        </ThemedText>
-      </View>
-
-      <SettingsSection title="Usual workday">
-        <SettingRow label="Days" value={workdayText} />
-        <SettingRow label="Working window" value={`${profile.workdayStart} - ${profile.workdayEnd}`} />
-        <SettingRow
-          label="Lunch window"
-          value={`${profile.lunchWindowStart} - ${profile.lunchWindowEnd}`}
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Timing and future prompts">
-        <ThemedText themeColor="textSecondary">
-          Meal-related habits use your lunch window, not a guessed meal time. Meeting resets can be started
-          manually. Notification scheduling is not enabled in this prototype yet.
-        </ThemedText>
-        <View style={[styles.statusRow, { backgroundColor: theme.backgroundSelected }]}>
-          <View style={[styles.statusDot, { backgroundColor: theme.accent }]} />
-          <View style={styles.statusCopy}>
-            <ThemedText type="smallBold">Calendar not connected</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              No meeting titles, attendees, or notes are being read.
-            </ThemedText>
-          </View>
+    <>
+      <ScreenShell>
+        <ProductHeader eyebrow="YOU" />
+        <View style={styles.introduction}>
+          <ThemedText type="title">
+            {profile.name ? `${profile.name}'s rhythm` : 'Your rhythm'}
+          </ThemedText>
+          <ThemedText themeColor="textSecondary">
+            Little Gains works from approximate windows and habits tied to moments you already notice.
+          </ThemedText>
         </View>
-      </SettingsSection>
 
-      <SettingsSection title="Privacy">
-        <SettingRow label="Account" value="Not required" />
-        <SettingRow label="Health data" value="Stored on this device" />
-        <SettingRow label="Calendar" value="No access" />
-        <ThemedText type="small" themeColor="textSecondary">
-          Your local database is encrypted on native builds. The browser preview is temporary and resets when refreshed.
-        </ThemedText>
-      </SettingsSection>
+        <SettingsSection title="Usual workday">
+          <SettingRow label="Days" value={workdayText} />
+          <SettingRow label="Working window" value={`${profile.workdayStart} - ${profile.workdayEnd}`} />
+          <SettingRow
+            label="Lunch window"
+            value={`${profile.lunchWindowStart} - ${profile.lunchWindowEnd}`}
+          />
+        </SettingsSection>
 
-      <View style={[styles.safetyCard, { backgroundColor: theme.surfaceWarm }]}>
-        <ThemedText type="smallBold">Move within what feels safe</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Stop if an activity causes pain, dizziness, or unusual shortness of breath. Little Gains supports routines;
-          it does not replace medical advice.
-        </ThemedText>
-      </View>
-    </ScreenShell>
+        <SettingsSection title="Helpful reminders">
+          <SettingRow label="Status" value={reminderStatus} />
+          <SettingRow
+            label="Next prompt"
+            value={nextReminderAt ? new Date(nextReminderAt).toLocaleString() : 'None scheduled'}
+          />
+          <ThemedText themeColor="textSecondary">
+            Meal-related support uses your lunch window, not a guessed meal time. Meeting resets stay manual.
+          </ThemedText>
+          <ActionButton label="Review reminder support" onPress={() => setReminderCenterVisible(true)} />
+        </SettingsSection>
+
+        <SettingsSection title="Calendar boundary">
+          <View style={[styles.statusRow, { backgroundColor: theme.backgroundSelected }]}>
+            <View style={[styles.statusDot, { backgroundColor: theme.accent }]} />
+            <View style={styles.statusCopy}>
+              <ThemedText type="smallBold">Calendar not connected</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                No meeting titles, attendees, or notes are being read.
+              </ThemedText>
+            </View>
+          </View>
+        </SettingsSection>
+
+        <SettingsSection title="Privacy">
+          <SettingRow label="Account" value="Not required" />
+          <SettingRow label="Health data" value="Stored on this device" />
+          <SettingRow label="Calendar" value="No access" />
+          <ThemedText type="small" themeColor="textSecondary">
+            Your local database is encrypted on native builds. The browser preview is temporary and resets when refreshed.
+          </ThemedText>
+        </SettingsSection>
+
+        <View style={[styles.safetyCard, { backgroundColor: theme.surfaceWarm }]}>
+          <ThemedText type="smallBold">Move within what feels safe</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Stop if an activity causes pain, dizziness, or unusual shortness of breath. Little Gains supports routines;
+            it does not replace medical advice.
+          </ThemedText>
+        </View>
+      </ScreenShell>
+
+      {reminderCenterVisible ? (
+        <ReminderCenter
+          onClose={() => setReminderCenterVisible(false)}
+          visible
+        />
+      ) : null}
+    </>
   );
 }
 

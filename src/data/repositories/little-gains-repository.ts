@@ -11,7 +11,11 @@ import {
   type Habit,
   type MobilityPreference,
   type OnboardingInput,
+  type PlannedReminder,
   type ProgressSummary,
+  type PromptResponse,
+  type ReminderFamily,
+  type ReminderPreferences,
   type TargetLevel,
   type UserProfile,
 } from '@/domain/models';
@@ -57,6 +61,19 @@ type CompletionRow = {
   completed_at: string;
 };
 
+type ReminderPreferenceRow = {
+  reminders_enabled: number;
+  reminder_support_level: ReminderPreferences['supportLevel'];
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  reminder_families_json: string;
+  reminders_paused_until: string | null;
+};
+
+export type StoredScheduledReminder = PlannedReminder & {
+  notificationIdentifier: string;
+};
+
 const DEFAULT_PROFILE: UserProfile = {
   onboardingComplete: false,
   name: '',
@@ -68,6 +85,15 @@ const DEFAULT_PROFILE: UserProfile = {
   lunchWindowStart: '12:30',
   lunchWindowEnd: '14:00',
   promptIntensity: 'gentle',
+};
+
+export const DEFAULT_REMINDER_PREFERENCES: ReminderPreferences = {
+  enabled: false,
+  supportLevel: 'gentle',
+  quietHoursStart: '20:30',
+  quietHoursEnd: '08:00',
+  pausedUntil: null,
+  enabledFamilies: ['workday', 'lunch', 'afternoon'],
 };
 
 function parseStoredArray<T>(storedValue: string, fallback: T[]) {
@@ -101,6 +127,150 @@ export async function loadUserProfile(database: SQLiteDatabase): Promise<UserPro
     lunchWindowEnd: row.lunch_window_end,
     promptIntensity: row.prompt_intensity,
   };
+}
+
+export async function loadReminderPreferences(
+  database: SQLiteDatabase,
+): Promise<ReminderPreferences> {
+  const row = await database.getFirstAsync<ReminderPreferenceRow>(
+    `SELECT reminders_enabled, reminder_support_level, quiet_hours_start,
+      quiet_hours_end, reminder_families_json, reminders_paused_until
+    FROM user_preferences WHERE id = 1;`,
+  );
+  if (!row) return DEFAULT_REMINDER_PREFERENCES;
+
+  return {
+    enabled: row.reminders_enabled === 1,
+    supportLevel: row.reminder_support_level,
+    quietHoursStart: row.quiet_hours_start,
+    quietHoursEnd: row.quiet_hours_end,
+    pausedUntil: row.reminders_paused_until,
+    enabledFamilies: parseStoredArray<ReminderFamily>(
+      row.reminder_families_json,
+      DEFAULT_REMINDER_PREFERENCES.enabledFamilies,
+    ),
+  };
+}
+
+/** Persists the complete reminder contract together so scheduling never observes a partial update. */
+export async function updateStoredReminderPreferences(
+  database: SQLiteDatabase,
+  preferences: ReminderPreferences,
+) {
+  await database.runAsync(
+    `UPDATE user_preferences SET reminders_enabled = ?, reminder_support_level = ?,
+      quiet_hours_start = ?, quiet_hours_end = ?, reminder_families_json = ?,
+      reminders_paused_until = ?, updated_at = ? WHERE id = 1;`,
+    preferences.enabled ? 1 : 0,
+    preferences.supportLevel,
+    preferences.quietHoursStart,
+    preferences.quietHoursEnd,
+    JSON.stringify(preferences.enabledFamilies),
+    preferences.pausedUntil,
+    new Date().toISOString(),
+  );
+}
+
+export async function loadBadTimeCounts(database: SQLiteDatabase) {
+  const rows = await database.getAllAsync<{ family: ReminderFamily; response_count: number }>(
+    `SELECT family, COUNT(*) AS response_count FROM prompt_events
+      WHERE response = 'bad_time' AND family IS NOT NULL
+        AND scheduled_for >= datetime('now', '-14 days') GROUP BY family;`,
+  );
+  return Object.fromEntries(rows.map((row) => [row.family, row.response_count]));
+}
+
+/** Replaces only pending future metadata while preserving delivered prompts as neutral history. */
+export async function replaceStoredReminderSchedule(
+  database: SQLiteDatabase,
+  reminders: readonly StoredScheduledReminder[],
+) {
+  const now = new Date().toISOString();
+  await database.withTransactionAsync(async () => {
+    await database.runAsync(
+      `DELETE FROM prompt_events
+        WHERE delivered_at IS NULL AND response IS NULL AND scheduled_for >= ?;`,
+      now,
+    );
+    for (const reminder of reminders) {
+      await database.runAsync(
+        `INSERT INTO prompt_events (
+          id, habit_id, scheduled_for, calendar_aware, created_at,
+          notification_identifier, family, daily_plan_item_id
+        ) VALUES (?, ?, ?, 0, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET scheduled_for = excluded.scheduled_for,
+          notification_identifier = excluded.notification_identifier,
+          daily_plan_item_id = excluded.daily_plan_item_id;`,
+        reminder.eventId,
+        reminder.habitId,
+        reminder.scheduledFor,
+        now,
+        reminder.notificationIdentifier,
+        reminder.family,
+        reminder.planItemId,
+      );
+    }
+  });
+}
+
+export async function storeScheduledReminder(
+  database: SQLiteDatabase,
+  reminder: StoredScheduledReminder,
+) {
+  await database.runAsync(
+    `INSERT INTO prompt_events (
+      id, habit_id, scheduled_for, calendar_aware, created_at,
+      notification_identifier, family, daily_plan_item_id
+    ) VALUES (?, ?, ?, 0, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET scheduled_for = excluded.scheduled_for,
+      notification_identifier = excluded.notification_identifier;`,
+    reminder.eventId,
+    reminder.habitId,
+    reminder.scheduledFor,
+    new Date().toISOString(),
+    reminder.notificationIdentifier,
+    reminder.family,
+    reminder.planItemId,
+  );
+}
+
+export async function recordStoredPromptDelivery(database: SQLiteDatabase, eventId: string) {
+  await database.runAsync(
+    'UPDATE prompt_events SET delivered_at = COALESCE(delivered_at, ?) WHERE id = ?;',
+    new Date().toISOString(),
+    eventId,
+  );
+}
+
+export async function recordStoredPromptResponse(
+  database: SQLiteDatabase,
+  eventId: string,
+  response: PromptResponse,
+) {
+  await database.runAsync(
+    `UPDATE prompt_events SET response = ?, delivered_at = COALESCE(delivered_at, ?)
+      WHERE id = ?;`,
+    response,
+    new Date().toISOString(),
+    eventId,
+  );
+}
+
+/** Completes today's matching plan item when a reminder action represents a finished small win. */
+export async function completeStoredHabitFromPrompt(
+  database: SQLiteDatabase,
+  habitId: string,
+) {
+  const localDate = formatLocalDate(new Date());
+  const row = await database.getFirstAsync<{ id: string }>(
+    `SELECT daily_plan_items.id FROM daily_plan_items
+      INNER JOIN daily_plans ON daily_plans.id = daily_plan_items.daily_plan_id
+      WHERE daily_plans.local_date = ? AND daily_plan_items.habit_id = ?
+        AND daily_plan_items.status = 'pending' LIMIT 1;`,
+    localDate,
+    habitId,
+  );
+  if (row) await completeStoredPlanItem(database, row.id);
 }
 
 /** Persists onboarding once and seeds the three selected habits without replacing later user history. */
@@ -425,6 +595,7 @@ export async function loadAppSnapshot(database: SQLiteDatabase): Promise<AppSnap
     ? await loadOrCreateTodayPlan(database, habits)
     : null;
   const progress = await loadProgressSummary(database);
+  const reminderPreferences = await loadReminderPreferences(database);
 
-  return { profile, habits, todayPlan, progress };
+  return { profile, habits, todayPlan, progress, reminderPreferences };
 }
