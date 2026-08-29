@@ -20,6 +20,7 @@ export const HABIT_LIBRARY: readonly HabitDefinition[] = [
       'Sit upright away from the back of the chair.',
       'March your feet gently and roll both shoulders.',
     ],
+    safetyNote: 'Use a stable surface if balance feels uncertain, and stop if standing feels unsafe.',
   },
   {
     id: 'lunch-walk',
@@ -40,6 +41,7 @@ export const HABIT_LIBRARY: readonly HabitDefinition[] = [
       'Sit upright and alternate lifting each foot.',
       'Keep the movement gentle and controlled.',
     ],
+    safetyNote: 'Choose a clear route and a pace that lets you speak comfortably.',
   },
   {
     id: 'meeting-reset',
@@ -60,6 +62,7 @@ export const HABIT_LIBRARY: readonly HabitDefinition[] = [
       'Sit upright and roll both shoulders slowly.',
       'Turn gently from side to side without moving your hips.',
     ],
+    safetyNote: 'Keep every movement inside a comfortable range and avoid forcing a stretch.',
   },
   {
     id: 'close-work-strength',
@@ -80,6 +83,7 @@ export const HABIT_LIBRARY: readonly HabitDefinition[] = [
       'Sit upright and straighten one leg at a time.',
       'Lower each foot with control and alternate sides.',
     ],
+    safetyNote: 'Use a stable chair without wheels and stop if you feel pain, dizziness, or instability.',
   },
   {
     id: 'afternoon-breathing',
@@ -96,6 +100,7 @@ export const HABIT_LIBRARY: readonly HabitDefinition[] = [
       'Breathe in gently through your nose.',
       'Exhale slowly without forcing the breath.',
     ],
+    safetyNote: 'Return to normal breathing if slow breaths feel uncomfortable or light-headed.',
   },
 ] as const;
 

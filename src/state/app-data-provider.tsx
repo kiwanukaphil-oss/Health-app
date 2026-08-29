@@ -11,20 +11,27 @@ import {
   recordStoredPromptDelivery,
   recordStoredPromptResponse,
   replaceStoredReminderSchedule,
+  resolveStoredAdaptation,
+  saveStoredWeeklyReflection,
   storeScheduledReminder,
   updateStoredHabitActivation,
+  updateStoredProfileAndRoutine,
   updateStoredReminderPreferences,
   updateStoredTodayEnergy,
 } from '@/data/repositories/little-gains-repository';
 import { createDeferredReminderDate, createReminderSchedule } from '@/domain/reminder-scheduler';
 import {
+  type AdaptationDecision,
   type AppSnapshot,
   type EnergyLevel,
   type NotificationPermissionState,
   type OnboardingInput,
   type PlannedReminder,
+  type ProfileUpdateInput,
   type PromptResponse,
   type ReminderPreferences,
+  type ReminderSupportLevel,
+  type WeeklyReflectionInput,
 } from '@/domain/models';
 import {
   addReminderDeliveryListener,
@@ -59,6 +66,9 @@ const INITIAL_SNAPSHOT: AppSnapshot = {
   todayPlan: null,
   progress: { activeMinutes: 0, sittingBreaks: 0, totalCompletions: 0, recentDays: [] },
   reminderPreferences: DEFAULT_REMINDER_PREFERENCES,
+  latestWeeklyReflection: null,
+  adaptationSuggestion: null,
+  journeyInsights: [],
 };
 
 type ReminderRuntimeState = {
@@ -237,6 +247,35 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [database, refreshAppSnapshot],
   );
 
+  const saveProfileChanges = useCallback(
+    async (
+      input: ProfileUpdateInput,
+      supportLevel: ReminderSupportLevel,
+      resetStarterPlan: boolean,
+    ) => {
+      await updateStoredProfileAndRoutine(database, input, supportLevel, resetStarterPlan);
+      await refreshAppSnapshot();
+    },
+    [database, refreshAppSnapshot],
+  );
+
+  const saveWeeklyReflection = useCallback(
+    async (input: WeeklyReflectionInput) => {
+      await saveStoredWeeklyReflection(database, input, snapshot.reminderPreferences.supportLevel);
+      await refreshAppSnapshot();
+    },
+    [database, refreshAppSnapshot, snapshot.reminderPreferences.supportLevel],
+  );
+
+  const resolveAdaptation = useCallback(
+    async (decision: AdaptationDecision) => {
+      if (!snapshot.adaptationSuggestion) return;
+      await resolveStoredAdaptation(database, snapshot.adaptationSuggestion.weekStart, decision);
+      await refreshAppSnapshot();
+    },
+    [database, refreshAppSnapshot, snapshot.adaptationSuggestion],
+  );
+
   const requestReminderPermissionAndEnable = useCallback(async () => {
     const permissionState = await requestReminderPermission();
     setReminderRuntime((current) => ({ ...current, permissionState }));
@@ -377,6 +416,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      saveProfileChanges,
+      saveWeeklyReflection,
+      resolveAdaptation,
       requestReminderPermissionAndEnable,
       saveReminderPreferences,
       pauseRemindersForToday,
@@ -390,6 +432,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      saveProfileChanges,
+      saveWeeklyReflection,
+      resolveAdaptation,
       reminderRuntime,
       requestReminderPermissionAndEnable,
       saveReminderPreferences,

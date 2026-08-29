@@ -9,13 +9,22 @@ import {
 } from '@/domain/daily-planner';
 import { createHabitFromDefinition, HABIT_LIBRARY, selectStarterHabits } from '@/domain/habit-library';
 import {
+  createAdaptationSuggestion,
+  createJourneyInsights,
+  getLocalWeekStart,
+} from '@/domain/personalization';
+import {
+  type AdaptationDecision,
   type AppSnapshot,
   type DailyPlan,
   type EnergyLevel,
   type Habit,
   type NotificationPermissionState,
   type OnboardingInput,
+  type ProfileUpdateInput,
   type ReminderPreferences,
+  type ReminderSupportLevel,
+  type WeeklyReflectionInput,
 } from '@/domain/models';
 import { AppDataContext } from '@/state/app-data-context';
 
@@ -55,6 +64,17 @@ const INITIAL_WEB_SNAPSHOT: AppSnapshot = {
     pausedUntil: null,
     enabledFamilies: ['workday', 'lunch', 'afternoon'],
   },
+  latestWeeklyReflection: null,
+  adaptationSuggestion: null,
+  journeyInsights: createJourneyInsights({
+    activeMinutes: 0,
+    sittingBreaks: 0,
+    totalCompletions: 0,
+    recentDays: createRecentLocalDates(new Date()).map((localDate) => ({
+      localDate,
+      completionCount: 0,
+    })),
+  }, null),
 };
 
 function createWebDailyPlan(activeHabits: Habit[], energyLevel: EnergyLevel): DailyPlan {
@@ -130,6 +150,23 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       );
       const allItemsComplete = updatedItems.every((item) => item.status === 'complete');
 
+      const progress = {
+        activeMinutes:
+          currentSnapshot.progress.activeMinutes +
+          estimateCompletionMinutes(completedItem.habit, completedItem.targetLevel),
+        sittingBreaks:
+          currentSnapshot.progress.sittingBreaks +
+          (completedItem.habit.category === 'sitting' ||
+          completedItem.habit.category === 'mobility'
+            ? 1
+            : 0),
+        totalCompletions: currentSnapshot.progress.totalCompletions + 1,
+        recentDays: currentSnapshot.progress.recentDays.map((day) =>
+          day.localDate === localDate
+            ? { ...day, completionCount: day.completionCount + 1 }
+            : day,
+        ),
+      };
       return {
         ...currentSnapshot,
         todayPlan: {
@@ -137,23 +174,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           items: updatedItems,
           status: allItemsComplete ? 'complete' : 'active',
         },
-        progress: {
-          activeMinutes:
-            currentSnapshot.progress.activeMinutes +
-            estimateCompletionMinutes(completedItem.habit, completedItem.targetLevel),
-          sittingBreaks:
-            currentSnapshot.progress.sittingBreaks +
-            (completedItem.habit.category === 'sitting' ||
-            completedItem.habit.category === 'mobility'
-              ? 1
-              : 0),
-          totalCompletions: currentSnapshot.progress.totalCompletions + 1,
-          recentDays: currentSnapshot.progress.recentDays.map((day) =>
-            day.localDate === localDate
-              ? { ...day, completionCount: day.completionCount + 1 }
-              : day,
-          ),
-        },
+        progress,
+        journeyInsights: createJourneyInsights(progress, currentSnapshot.latestWeeklyReflection),
       };
     });
   }, []);
@@ -174,6 +196,60 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     },
     [snapshot.habits],
   );
+
+  /** Mirrors native profile timing semantics while keeping today's preview plan unchanged. */
+  const saveProfileChanges = useCallback(async (
+    input: ProfileUpdateInput,
+    supportLevel: ReminderSupportLevel,
+    resetStarterPlan: boolean,
+  ) => {
+    setSnapshot((currentSnapshot) => {
+      const starterIds = new Set(selectStarterHabits(input.priorities).map((habit) => habit.id));
+      return {
+        ...currentSnapshot,
+        profile: { ...input, onboardingComplete: true, promptIntensity: supportLevel },
+        reminderPreferences: { ...currentSnapshot.reminderPreferences, supportLevel },
+        habits: resetStarterPlan
+          ? currentSnapshot.habits.map((habit) => ({ ...habit, isActive: starterIds.has(habit.id) }))
+          : currentSnapshot.habits,
+      };
+    });
+  }, []);
+
+  const saveWeeklyReflection = useCallback(async (input: WeeklyReflectionInput) => {
+    setSnapshot((currentSnapshot) => {
+      const weekStart = getLocalWeekStart(new Date());
+      const latestWeeklyReflection = { ...input, weekStart, createdAt: new Date().toISOString() };
+      return {
+        ...currentSnapshot,
+        latestWeeklyReflection,
+        adaptationSuggestion: createAdaptationSuggestion(
+          weekStart,
+          input,
+          currentSnapshot.reminderPreferences.supportLevel,
+        ),
+        journeyInsights: createJourneyInsights(currentSnapshot.progress, latestWeeklyReflection),
+      };
+    });
+  }, []);
+
+  /** Applies only an accepted support-level suggestion; all other decisions remain informational. */
+  const resolveAdaptation = useCallback(async (decision: AdaptationDecision) => {
+    setSnapshot((currentSnapshot) => {
+      const suggestion = currentSnapshot.adaptationSuggestion;
+      if (!suggestion) return currentSnapshot;
+      const supportLevel = ['gentle', 'balanced', 'supportive'].includes(suggestion.code)
+        ? suggestion.code as ReminderSupportLevel
+        : currentSnapshot.reminderPreferences.supportLevel;
+      return {
+        ...currentSnapshot,
+        reminderPreferences: decision === 'accepted'
+          ? { ...currentSnapshot.reminderPreferences, supportLevel }
+          : currentSnapshot.reminderPreferences,
+        adaptationSuggestion: { ...suggestion, status: decision },
+      };
+    });
+  }, []);
 
   const requestReminderPermissionAndEnable = useCallback(async () => (
     'unavailable' as NotificationPermissionState
@@ -219,6 +295,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      saveProfileChanges,
+      saveWeeklyReflection,
+      resolveAdaptation,
       requestReminderPermissionAndEnable,
       saveReminderPreferences,
       pauseRemindersForToday,
@@ -230,6 +309,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateTodayEnergy,
       completePlanItem,
       updateHabitActivation,
+      saveProfileChanges,
+      saveWeeklyReflection,
+      resolveAdaptation,
       requestReminderPermissionAndEnable,
       saveReminderPreferences,
       pauseRemindersForToday,

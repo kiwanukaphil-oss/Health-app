@@ -1,11 +1,15 @@
 import { createContext, useContext } from 'react';
 
 import {
+  type AdaptationDecision,
   type AppSnapshot,
   type EnergyLevel,
   type NotificationPermissionState,
   type OnboardingInput,
+  type ProfileUpdateInput,
   type ReminderPreferences,
+  type ReminderSupportLevel,
+  type WeeklyReflectionInput,
 } from '@/domain/models';
 
 export type HabitActivationResult = {
@@ -28,6 +32,13 @@ export type AppDataContextValue = AppSnapshot & {
     habitId: string,
     shouldBeActive: boolean,
   ) => Promise<HabitActivationResult>;
+  saveProfileChanges: (
+    input: ProfileUpdateInput,
+    supportLevel: ReminderSupportLevel,
+    resetStarterPlan: boolean,
+  ) => Promise<void>;
+  saveWeeklyReflection: (input: WeeklyReflectionInput) => Promise<void>;
+  resolveAdaptation: (decision: AdaptationDecision) => Promise<void>;
   requestReminderPermissionAndEnable: () => Promise<NotificationPermissionState>;
   saveReminderPreferences: (preferences: ReminderPreferences) => Promise<void>;
   pauseRemindersForToday: () => Promise<void>;

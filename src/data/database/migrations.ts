@@ -138,4 +138,20 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
         ON prompt_events(scheduled_for, response);`,
     ],
   },
+  {
+    version: 4,
+    description: 'Add explainable weekly reflection and adaptation metadata',
+    statements: [
+      `ALTER TABLE weekly_reflections ADD COLUMN difficulty_rating TEXT
+        CHECK (difficulty_rating IN ('comfortable', 'manageable', 'hard'));`,
+      `ALTER TABLE weekly_reflections ADD COLUMN adjustment_choice TEXT
+        CHECK (adjustment_choice IN ('keep', 'less_support', 'more_support', 'different_habit'));`,
+      `ALTER TABLE weekly_reflections ADD COLUMN suggestion_code TEXT
+        CHECK (suggestion_code IN ('gentle', 'balanced', 'supportive', 'review_habits', 'keep_steady'));`,
+      `ALTER TABLE weekly_reflections ADD COLUMN suggestion_reason TEXT;`,
+      `ALTER TABLE weekly_reflections ADD COLUMN suggestion_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (suggestion_status IN ('pending', 'accepted', 'modified', 'dismissed'));`,
+      `ALTER TABLE weekly_reflections ADD COLUMN updated_at TEXT;`,
+    ],
+  },
 ] as const;

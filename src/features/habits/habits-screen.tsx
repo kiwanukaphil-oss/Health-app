@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { ActionButton } from '@/components/ui/action-button';
 import { ProductHeader } from '@/components/ui/product-header';
 import { ScreenShell } from '@/components/ui/screen-shell';
 import { Radii, Spacing } from '@/constants/theme';
@@ -21,9 +22,10 @@ const categoryLabels: Readonly<Record<HabitCategory, string>> = {
 /** Lets the user keep a deliberately small set of active habits without changing today's plan. */
 export function HabitsScreen() {
   const theme = useTheme();
-  const { habits, updateHabitActivation } = useAppData();
+  const { habits, profile, updateHabitActivation } = useAppData();
   const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [expandedHabitId, setExpandedHabitId] = useState<string | null>(null);
   const activeCount = habits.filter((habit) => habit.isActive).length;
 
   const toggleHabit = async (habitId: string, shouldBeActive: boolean) => {
@@ -119,6 +121,34 @@ export function HabitsScreen() {
                 <TargetPill label="Standard" value={formatTargetMeasurement(habit.standardTargetValue, habit.targetUnit)} />
                 <TargetPill label="Bonus" value={formatTargetMeasurement(habit.bonusTargetValue, habit.targetUnit)} />
               </View>
+              <ActionButton
+                label={expandedHabitId === habit.id ? 'Hide gentle options' : 'View gentle options'}
+                onPress={() => setExpandedHabitId((current) => current === habit.id ? null : habit.id)}
+                variant="quiet"
+              />
+              {expandedHabitId === habit.id ? (
+                <View style={[styles.detailCard, { backgroundColor: theme.backgroundSelected }]}>
+                  <ThemedText type="smallBold">Minimum version guidance</ThemedText>
+                  {(profile.mobilityPreference === 'seated' && habit.seatedAlternative
+                    ? habit.seatedAlternative
+                    : habit.instructions
+                  ).map((instruction) => (
+                    <ThemedText key={instruction} type="small" themeColor="textSecondary">• {instruction}</ThemedText>
+                  ))}
+                  {profile.mobilityPreference === 'seated_or_standing' && habit.seatedAlternative ? (
+                    <>
+                      <ThemedText type="smallBold">Seated alternative</ThemedText>
+                      {habit.seatedAlternative.map((instruction) => (
+                        <ThemedText key={instruction} type="small" themeColor="textSecondary">• {instruction}</ThemedText>
+                      ))}
+                    </>
+                  ) : null}
+                  <View style={[styles.safetyNote, { backgroundColor: theme.surfaceWarm }]}>
+                    <ThemedText type="smallBold">Safety note</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">{habit.safetyNote}</ThemedText>
+                  </View>
+                </View>
+              ) : null}
             </View>
           );
         })}
@@ -189,5 +219,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 92,
     gap: 2,
+  },
+  detailCard: {
+    gap: Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Radii.medium,
+  },
+  safetyNote: {
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+    padding: Spacing.two,
+    borderRadius: Radii.small,
   },
 });

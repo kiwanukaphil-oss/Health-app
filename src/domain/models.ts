@@ -9,6 +9,11 @@ export type ReminderSupportLevel = 'gentle' | 'balanced' | 'supportive';
 export type ReminderFamily = 'workday' | 'lunch' | 'afternoon';
 export type NotificationPermissionState = 'undetermined' | 'granted' | 'denied' | 'unavailable';
 export type PromptResponse = 'done' | 'later' | 'not_today' | 'bad_time';
+export type ReflectionHelpfulness = 'helpful' | 'mixed' | 'not_helpful';
+export type ReflectionDifficulty = 'comfortable' | 'manageable' | 'hard';
+export type ReflectionAdjustment = 'keep' | 'less_support' | 'more_support' | 'different_habit';
+export type AdaptationDecision = 'accepted' | 'modified' | 'dismissed';
+export type AdaptationSuggestionCode = ReminderSupportLevel | 'review_habits' | 'keep_steady';
 
 export type HabitDefinition = {
   id: string;
@@ -22,6 +27,7 @@ export type HabitDefinition = {
   targetUnit: TargetUnit;
   instructions: readonly string[];
   seatedAlternative?: readonly string[];
+  safetyNote: string;
 };
 
 export type Habit = HabitDefinition & {
@@ -60,6 +66,8 @@ export type UserProfile = {
 
 export type OnboardingInput = Omit<UserProfile, 'onboardingComplete' | 'promptIntensity'>;
 
+export type ProfileUpdateInput = Omit<UserProfile, 'onboardingComplete' | 'promptIntensity'>;
+
 export type ProgressDay = {
   localDate: string;
   completionCount: number;
@@ -70,6 +78,33 @@ export type ProgressSummary = {
   sittingBreaks: number;
   totalCompletions: number;
   recentDays: ProgressDay[];
+};
+
+export type WeeklyReflectionInput = {
+  helpfulness: ReflectionHelpfulness;
+  difficulty: ReflectionDifficulty;
+  energyRating: number;
+  adjustment: ReflectionAdjustment;
+};
+
+export type WeeklyReflection = WeeklyReflectionInput & {
+  weekStart: string;
+  createdAt: string;
+};
+
+export type AdaptationSuggestion = {
+  weekStart: string;
+  code: AdaptationSuggestionCode;
+  title: string;
+  reason: string;
+  status: 'pending' | AdaptationDecision;
+};
+
+export type JourneyInsight = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  body: string;
 };
 
 export type ReminderPreferences = {
@@ -97,4 +132,7 @@ export type AppSnapshot = {
   todayPlan: DailyPlan | null;
   progress: ProgressSummary;
   reminderPreferences: ReminderPreferences;
+  latestWeeklyReflection: WeeklyReflection | null;
+  adaptationSuggestion: AdaptationSuggestion | null;
+  journeyInsights: JourneyInsight[];
 };

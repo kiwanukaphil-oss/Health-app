@@ -4,6 +4,13 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { createDailyPlanDraft, createRecentLocalDates, estimateCompletionMinutes, formatLocalDate, selectTargetLevelForEnergy } from '@/domain/daily-planner';
 import { createHabitFromDefinition, findHabitDefinition, HABIT_LIBRARY, selectStarterHabits } from '@/domain/habit-library';
 import {
+  createAdaptationSuggestion,
+  createJourneyInsights,
+  getLocalWeekStart,
+} from '@/domain/personalization';
+import {
+  type AdaptationDecision,
+  type AdaptationSuggestion,
   type AppSnapshot,
   type DailyPlan,
   type EnergyLevel,
@@ -12,12 +19,15 @@ import {
   type MobilityPreference,
   type OnboardingInput,
   type PlannedReminder,
+  type ProfileUpdateInput,
   type ProgressSummary,
   type PromptResponse,
   type ReminderFamily,
   type ReminderPreferences,
   type TargetLevel,
   type UserProfile,
+  type WeeklyReflection,
+  type WeeklyReflectionInput,
 } from '@/domain/models';
 
 type PreferenceRow = {
@@ -68,6 +78,18 @@ type ReminderPreferenceRow = {
   quiet_hours_end: string;
   reminder_families_json: string;
   reminders_paused_until: string | null;
+};
+
+type WeeklyReflectionRow = {
+  week_start: string;
+  reminder_feedback: WeeklyReflection['helpfulness'];
+  energy_rating: number;
+  created_at: string;
+  difficulty_rating: WeeklyReflection['difficulty'];
+  adjustment_choice: WeeklyReflection['adjustment'];
+  suggestion_code: AdaptationSuggestion['code'];
+  suggestion_reason: string;
+  suggestion_status: AdaptationSuggestion['status'];
 };
 
 export type StoredScheduledReminder = PlannedReminder & {
@@ -337,6 +359,165 @@ export async function completeStoredOnboarding(
   });
 }
 
+/** Saves editable routine choices atomically and optionally restores starter habits without touching history. */
+export async function updateStoredProfileAndRoutine(
+  database: SQLiteDatabase,
+  input: ProfileUpdateInput,
+  supportLevel: ReminderPreferences['supportLevel'],
+  resetStarterPlan: boolean,
+) {
+  const now = new Date().toISOString();
+  await database.withTransactionAsync(async () => {
+    await database.runAsync(
+      `UPDATE user_preferences SET user_name = ?, priorities_json = ?, mobility_preference = ?,
+        workdays_json = ?, workday_start = ?, workday_end = ?, lunch_window_start = ?,
+        lunch_window_end = ?, prompt_intensity = ?, reminder_support_level = ?, updated_at = ?
+        WHERE id = 1;`,
+      input.name.trim(),
+      JSON.stringify(input.priorities),
+      input.mobilityPreference,
+      JSON.stringify(input.workdays),
+      input.workdayStart,
+      input.workdayEnd,
+      input.lunchWindowStart,
+      input.lunchWindowEnd,
+      supportLevel,
+      supportLevel,
+      now,
+    );
+    if (!resetStarterPlan) return;
+
+    await database.runAsync('UPDATE habits SET is_active = 0, updated_at = ?;', now);
+    const starterHabits = selectStarterHabits(input.priorities);
+    for (const [position, habit] of starterHabits.entries()) {
+      await database.runAsync(
+        `INSERT INTO habits (
+          id, title, category, cue_type, cue_detail, minimum_target_value,
+          standard_target_value, bonus_target_value, target_unit, is_active,
+          position, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET is_active = 1, position = excluded.position,
+          updated_at = excluded.updated_at;`,
+        habit.id,
+        habit.title,
+        habit.category,
+        habit.cueType,
+        habit.cueLabel,
+        habit.minimumTargetValue,
+        habit.standardTargetValue,
+        habit.bonusTargetValue,
+        habit.targetUnit,
+        position,
+        now,
+        now,
+      );
+    }
+  });
+}
+
+/** Stores one reflection per local week and generates a visible recommendation from explicit answers. */
+export async function saveStoredWeeklyReflection(
+  database: SQLiteDatabase,
+  input: WeeklyReflectionInput,
+  currentSupportLevel: ReminderPreferences['supportLevel'],
+) {
+  const weekStart = getLocalWeekStart(new Date());
+  const suggestion = createAdaptationSuggestion(weekStart, input, currentSupportLevel);
+  const now = new Date().toISOString();
+  await database.runAsync(
+    `INSERT INTO weekly_reflections (
+      week_start, reminder_feedback, energy_rating, created_at, difficulty_rating,
+      adjustment_choice, suggestion_code, suggestion_reason, suggestion_status, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    ON CONFLICT(week_start) DO UPDATE SET reminder_feedback = excluded.reminder_feedback,
+      energy_rating = excluded.energy_rating, difficulty_rating = excluded.difficulty_rating,
+      adjustment_choice = excluded.adjustment_choice, suggestion_code = excluded.suggestion_code,
+      suggestion_reason = excluded.suggestion_reason, suggestion_status = 'pending',
+      updated_at = excluded.updated_at;`,
+    weekStart,
+    input.helpfulness,
+    input.energyRating,
+    now,
+    input.difficulty,
+    input.adjustment,
+    suggestion.code,
+    suggestion.reason,
+    now,
+  );
+}
+
+function createSuggestionTitle(code: AdaptationSuggestion['code']) {
+  if (code === 'review_habits') return 'Try a different small win';
+  if (code === 'keep_steady') return 'Keep the plan steady';
+  if (code === 'gentle') return 'Use gentle reminder support';
+  if (code === 'balanced') return 'Use balanced reminder support';
+  return 'Use supportive reminders';
+}
+
+/** Loads the most recent reflection and its recommendation as one coherent, explainable state. */
+export async function loadLatestWeeklyReflection(database: SQLiteDatabase) {
+  const row = await database.getFirstAsync<WeeklyReflectionRow>(
+    `SELECT week_start, reminder_feedback, energy_rating, created_at, difficulty_rating,
+      adjustment_choice, suggestion_code, suggestion_reason, suggestion_status
+      FROM weekly_reflections ORDER BY week_start DESC LIMIT 1;`,
+  );
+  if (!row || !row.reminder_feedback || !row.difficulty_rating || !row.adjustment_choice) {
+    return { reflection: null, suggestion: null };
+  }
+  return {
+    reflection: {
+      weekStart: row.week_start,
+      helpfulness: row.reminder_feedback,
+      difficulty: row.difficulty_rating,
+      energyRating: row.energy_rating,
+      adjustment: row.adjustment_choice,
+      createdAt: row.created_at,
+    } satisfies WeeklyReflection,
+    suggestion: row.suggestion_code && row.suggestion_reason
+      ? {
+          weekStart: row.week_start,
+          code: row.suggestion_code,
+          title: createSuggestionTitle(row.suggestion_code),
+          reason: row.suggestion_reason,
+          status: row.suggestion_status,
+        } satisfies AdaptationSuggestion
+      : null,
+  };
+}
+
+/** Records the user's adaptation decision and applies only an explicitly accepted reminder level. */
+export async function resolveStoredAdaptation(
+  database: SQLiteDatabase,
+  weekStart: string,
+  decision: AdaptationDecision,
+) {
+  const row = await database.getFirstAsync<{ suggestion_code: AdaptationSuggestion['code'] }>(
+    'SELECT suggestion_code FROM weekly_reflections WHERE week_start = ?;',
+    weekStart,
+  );
+  await database.withTransactionAsync(async () => {
+    if (
+      decision === 'accepted' &&
+      row &&
+      ['gentle', 'balanced', 'supportive'].includes(row.suggestion_code)
+    ) {
+      await database.runAsync(
+        `UPDATE user_preferences SET reminder_support_level = ?, prompt_intensity = ?, updated_at = ?
+          WHERE id = 1;`,
+        row.suggestion_code,
+        row.suggestion_code,
+        new Date().toISOString(),
+      );
+    }
+    await database.runAsync(
+      'UPDATE weekly_reflections SET suggestion_status = ?, updated_at = ? WHERE week_start = ?;',
+      decision,
+      new Date().toISOString(),
+      weekStart,
+    );
+  });
+}
+
 /** Merges persisted activation state into the curated library so inactive choices remain discoverable. */
 export async function loadHabitLibraryState(database: SQLiteDatabase) {
   const storedStates = await database.getAllAsync<HabitStateRow>(
@@ -596,6 +777,17 @@ export async function loadAppSnapshot(database: SQLiteDatabase): Promise<AppSnap
     : null;
   const progress = await loadProgressSummary(database);
   const reminderPreferences = await loadReminderPreferences(database);
+  const weeklyState = await loadLatestWeeklyReflection(database);
+  const journeyInsights = createJourneyInsights(progress, weeklyState.reflection);
 
-  return { profile, habits, todayPlan, progress, reminderPreferences };
+  return {
+    profile,
+    habits,
+    todayPlan,
+    progress,
+    reminderPreferences,
+    latestWeeklyReflection: weeklyState.reflection,
+    adaptationSuggestion: weeklyState.suggestion,
+    journeyInsights,
+  };
 }

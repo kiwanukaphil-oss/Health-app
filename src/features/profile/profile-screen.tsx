@@ -7,6 +7,7 @@ import { ProductHeader } from '@/components/ui/product-header';
 import { ScreenShell } from '@/components/ui/screen-shell';
 import { Radii, Spacing } from '@/constants/theme';
 import { ReminderCenter } from '@/features/reminders/reminder-center';
+import { ProfileEditor } from '@/features/profile/profile-editor';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
 
@@ -20,6 +21,20 @@ const weekdayLabels: Readonly<Record<number, string>> = {
   6: 'Sat',
 };
 
+const priorityLabels = {
+  sit_less: 'Sit less',
+  move_more: 'Move more',
+  mobility: 'Mobility',
+  strength: 'Strength',
+  energy: 'Energy',
+} as const;
+
+const mobilityLabels = {
+  standing: 'Standing',
+  seated_or_standing: 'Seated or standing',
+  seated: 'Seated preferred',
+} as const;
+
 /** Makes the app's timing assumptions, privacy posture, and optional calendar boundary explicit. */
 export function ProfileScreen() {
   const theme = useTheme();
@@ -30,6 +45,7 @@ export function ProfileScreen() {
     nextReminderAt,
   } = useAppData();
   const [reminderCenterVisible, setReminderCenterVisible] = useState(false);
+  const [profileEditorVisible, setProfileEditorVisible] = useState(false);
   const workdayText = profile.workdays.map((day) => weekdayLabels[day]).join(', ');
   const reminderStatus = notificationPermissionState === 'unavailable'
     ? 'Available on mobile'
@@ -53,16 +69,20 @@ export function ProfileScreen() {
         </View>
 
         <SettingsSection title="Usual workday">
+          <SettingRow label="Priorities" value={profile.priorities.map((priority) => priorityLabels[priority]).join(', ')} />
+          <SettingRow label="Movement" value={mobilityLabels[profile.mobilityPreference]} />
           <SettingRow label="Days" value={workdayText} />
           <SettingRow label="Working window" value={`${profile.workdayStart} - ${profile.workdayEnd}`} />
           <SettingRow
             label="Lunch window"
             value={`${profile.lunchWindowStart} - ${profile.lunchWindowEnd}`}
           />
+          <ActionButton label="Edit my rhythm" onPress={() => setProfileEditorVisible(true)} />
         </SettingsSection>
 
         <SettingsSection title="Helpful reminders">
           <SettingRow label="Status" value={reminderStatus} />
+          <SettingRow label="Support level" value={reminderPreferences.supportLevel} />
           <SettingRow
             label="Next prompt"
             value={nextReminderAt ? new Date(nextReminderAt).toLocaleString() : 'None scheduled'}
@@ -108,6 +128,9 @@ export function ProfileScreen() {
           onClose={() => setReminderCenterVisible(false)}
           visible
         />
+      ) : null}
+      {profileEditorVisible ? (
+        <ProfileEditor visible onClose={() => setProfileEditorVisible(false)} />
       ) : null}
     </>
   );
