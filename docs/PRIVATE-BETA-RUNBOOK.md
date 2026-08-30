@@ -14,7 +14,8 @@ Validate that Little Gains is dependable, understandable, accessible, and genuin
 - [x] Existing encrypted data survives an upgrade from the previous approved build.
 - [x] Fresh install and onboarding pass on a supported Android target.
 - [x] Large text through 150% and reduced-motion behavior are checked on the current Android target.
-- [ ] TalkBack, high contrast, touch targets, and one-handed use are checked.
+- [x] Device-level TalkBack smoke, high contrast, touch targets, and practical one-handed reachability are checked on the current Android target.
+- [ ] A blind or low-vision tester validates TalkBack spoken output and gesture usability without guidance.
 - [ ] Notification permission denial, quiet hours, pause, Later, Bad time, Not today, and restart recovery pass.
 - [x] Data export opens a user-controlled share sheet and excludes keys and notification identifiers.
 - [x] Confirmed deletion cancels reminders, clears app-owned data, and returns to onboarding.
@@ -72,7 +73,7 @@ Do not collect free-text health histories, calendar content, employer details, o
 | --- | --- | --- |
 | Android current target | Connected Samsung release build, upgrade, restart, notification actions | In progress |
 | Android supported floor | Android 7/API 24 fresh install and core journey | Pending |
-| Android accessibility | TalkBack, large text, reduced motion, high contrast, one-handed use | In progress; large text and reduced motion pass |
+| Android accessibility | TalkBack, large text, reduced motion, high contrast, one-handed use | Device checks pass; human TalkBack validation pending |
 | iOS supported floor | iOS 16.4+ fresh install, VoiceOver, notifications, export | Pending external device/build |
 | Web preview | Static export, keyboard navigation, responsive layout, temporary-data messaging | In progress |
 
@@ -82,7 +83,11 @@ On 29 August 2026, an isolated release build using a temporary `.qa` application
 
 This pass also found and corrected a route-reset defect that had previously left the deleted profile on the You screen until restart.
 
-On 29 August 2026, the production release build passed large-text checks at 130% across Today, You, and the complete Data & Safety flow, including the export and deletion controls. Today also passed a stricter 150% check without clipped or overlapping content. With Android window, transition, and animator scales disabled, the guided-activity screen opened correctly and its timer started and updated without React Native or Android runtime errors. The device's original text and animation settings were restored and verified afterward. TalkBack, high contrast, touch-target measurement, and one-handed-use checks remain open.
+On 29 August 2026, the production release build passed large-text checks at 130% across Today, You, and the complete Data & Safety flow, including the export and deletion controls. Today also passed a stricter 150% check without clipped or overlapping content. With Android window, transition, and animator scales disabled, the guided-activity screen opened correctly and its timer started and updated without React Native or Android runtime errors. The device's original text and animation settings were restored and verified afterward. TalkBack, high contrast, touch-target measurement, and one-handed-use checks were left for the next device pass.
+
+On 30 August 2026, Samsung TalkBack was enabled and confirmed as the bound spoken-feedback service. Today and Guided Activity exposed meaningful control labels, the guided flow opened correctly, and measured controls were at least 48 dp on Today, Guided Activity, and You. Android high-contrast text rendered without clipping or overlap. Bottom navigation and primary actions remained in the lower reachable region, while deeper You actions moved into that region after a normal scroll. TalkBack and high-contrast settings were restored to their original disabled state afterward. A human TalkBack spoken-output and gesture-usability session remains required.
+
+The same audit found that the light-theme amber accent provided only 2.33:1 to 2.69:1 contrast on its surfaces. The accent was darkened while preserving its warm tone; its lowest text contrast is now 4.69:1. Automated coverage now enforces at least 4.5:1 across 24 semantic foreground/background combinations in the light and dark themes.
 
 ## Performance budgets to validate
 

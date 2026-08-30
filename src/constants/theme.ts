@@ -16,7 +16,7 @@ export const Colors = {
     primaryStrong: '#285A36',
     onPrimary: '#FFFFFF',
     border: '#DFE4DC',
-    accent: '#D98D36',
+    accent: '#A15711',
     danger: '#A44A3F',
   },
   dark: {
