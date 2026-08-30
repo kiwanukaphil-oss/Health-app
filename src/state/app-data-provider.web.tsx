@@ -295,6 +295,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     setSnapshot(INITIAL_WEB_SNAPSHOT);
   }, []);
 
+  const resolvePendingReminderMoreChoice = useCallback(async () => {}, []);
+  const dismissPendingReminderMoreChoice = useCallback(() => {}, []);
+
   const contextValue = useMemo(
     () => ({
       ...snapshot,
@@ -305,6 +308,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       nextReminderAt: null,
       isReminderSyncing: false,
       reminderErrorMessage: null,
+      pendingReminderMoreChoice: null,
       completeOnboarding,
       updateTodayEnergy,
       completePlanItem,
@@ -316,6 +320,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      resolvePendingReminderMoreChoice,
+      dismissPendingReminderMoreChoice,
       exportLocalData,
       deleteAllLocalData,
     }),
@@ -332,6 +338,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      resolvePendingReminderMoreChoice,
+      dismissPendingReminderMoreChoice,
       exportLocalData,
       deleteAllLocalData,
     ],

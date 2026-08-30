@@ -1,18 +1,12 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { REMINDER_ACTIONS } from '@/domain/reminder-actions';
 import {
   type NotificationPermissionState,
   type PlannedReminder,
   type ReminderFamily,
 } from '@/domain/models';
-
-export const REMINDER_ACTIONS = {
-  done: 'LITTLE_GAINS_DONE',
-  later: 'LITTLE_GAINS_LATER',
-  badTime: 'LITTLE_GAINS_BAD_TIME',
-  notToday: 'LITTLE_GAINS_NOT_TODAY',
-} as const;
 
 export type ReminderNotificationResponse = {
   actionIdentifier: string;
@@ -52,8 +46,11 @@ export async function initializeReminderNotifications() {
   await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY_ID, [
     { identifier: REMINDER_ACTIONS.done, buttonTitle: 'Done' },
     { identifier: REMINDER_ACTIONS.later, buttonTitle: 'Later' },
-    { identifier: REMINDER_ACTIONS.badTime, buttonTitle: 'Bad time' },
-    { identifier: REMINDER_ACTIONS.notToday, buttonTitle: 'Not today' },
+    {
+      identifier: REMINDER_ACTIONS.more,
+      buttonTitle: 'More',
+      options: { opensAppToForeground: true },
+    },
   ]);
 }
 
@@ -83,6 +80,10 @@ export async function requestReminderPermission() {
 
 export async function cancelScheduledReminderNotifications() {
   await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
+export async function dismissPresentedReminderNotification(eventId: string) {
+  await Notifications.dismissNotificationAsync(eventId);
 }
 
 /** Schedules one date-based notification with enough local metadata to apply a chosen action. */

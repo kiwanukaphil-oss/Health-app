@@ -12,6 +12,7 @@ import {
   type ReminderPreferences,
   type ReminderSupportLevel,
 } from '@/domain/models';
+import { preserveLiveReminderControls } from '@/domain/reminder-preferences';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppData } from '@/state/app-data-context';
@@ -91,7 +92,7 @@ export function ReminderCenter({ visible, onClose }: { visible: boolean; onClose
     }
     setIsSaving(true);
     try {
-      await saveReminderPreferences(draft);
+      await saveReminderPreferences(preserveLiveReminderControls(draft, reminderPreferences));
     } catch {
       setValidationMessage('These reminder choices could not be saved. Please try again.');
     } finally {

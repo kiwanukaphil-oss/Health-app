@@ -11,10 +11,16 @@ import {
   type ReminderSupportLevel,
   type WeeklyReflectionInput,
 } from '@/domain/models';
+import { type ReminderMoreDecision } from '@/domain/reminder-actions';
 
 export type HabitActivationResult = {
   updated: boolean;
   message?: string;
+};
+
+export type PendingReminderMoreChoice = {
+  title: string;
+  body: string;
 };
 
 export type AppDataContextValue = AppSnapshot & {
@@ -25,6 +31,7 @@ export type AppDataContextValue = AppSnapshot & {
   nextReminderAt: string | null;
   isReminderSyncing: boolean;
   reminderErrorMessage: string | null;
+  pendingReminderMoreChoice: PendingReminderMoreChoice | null;
   completeOnboarding: (input: OnboardingInput) => Promise<void>;
   updateTodayEnergy: (energyLevel: EnergyLevel) => Promise<void>;
   completePlanItem: (planItemId: string) => Promise<void>;
@@ -43,6 +50,8 @@ export type AppDataContextValue = AppSnapshot & {
   saveReminderPreferences: (preferences: ReminderPreferences) => Promise<void>;
   pauseRemindersForToday: () => Promise<void>;
   setRemindersEnabled: (enabled: boolean) => Promise<void>;
+  resolvePendingReminderMoreChoice: (decision: ReminderMoreDecision) => Promise<void>;
+  dismissPendingReminderMoreChoice: () => void;
   exportLocalData: () => Promise<boolean>;
   deleteAllLocalData: () => Promise<void>;
 };

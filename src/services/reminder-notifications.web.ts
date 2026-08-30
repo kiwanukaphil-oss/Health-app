@@ -4,13 +4,6 @@ import {
   type ReminderFamily,
 } from '@/domain/models';
 
-export const REMINDER_ACTIONS = {
-  done: 'LITTLE_GAINS_DONE',
-  later: 'LITTLE_GAINS_LATER',
-  badTime: 'LITTLE_GAINS_BAD_TIME',
-  notToday: 'LITTLE_GAINS_NOT_TODAY',
-} as const;
-
 export type ReminderNotificationResponse = {
   actionIdentifier: string;
   eventId: string | null;
@@ -28,6 +21,7 @@ export async function initializeReminderNotifications() {}
 export async function getReminderPermissionState() { return unavailablePermission; }
 export async function requestReminderPermission() { return unavailablePermission; }
 export async function cancelScheduledReminderNotifications() {}
+export async function dismissPresentedReminderNotification(_eventId: string) {}
 export async function schedulePlannedReminder(_reminder: PlannedReminder) { return ''; }
 export async function getScheduledReminderSummary() {
   return { count: 0, nextReminderAt: null };

@@ -30,21 +30,26 @@ import {
   type OnboardingInput,
   type PlannedReminder,
   type ProfileUpdateInput,
-  type PromptResponse,
   type ReminderPreferences,
   type ReminderSupportLevel,
   type WeeklyReflectionInput,
 } from '@/domain/models';
 import {
+  getPromptResponseForReminderAction,
+  opensReminderMoreChoices,
+  REMINDER_ACTIONS,
+  type ReminderMoreDecision,
+} from '@/domain/reminder-actions';
+import {
   addReminderDeliveryListener,
   addReminderResponseListener,
   cancelScheduledReminderNotifications,
   clearLastReminderResponse,
+  dismissPresentedReminderNotification,
   getLastReminderResponse,
   getReminderPermissionState,
   getScheduledReminderSummary,
   initializeReminderNotifications,
-  REMINDER_ACTIONS,
   type ReminderNotificationResponse,
   requestReminderPermission,
   schedulePlannedReminder,
@@ -137,6 +142,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reminderRuntime, setReminderRuntime] = useState(INITIAL_REMINDER_RUNTIME);
+  const [pendingReminderResponse, setPendingReminderResponse] =
+    useState<ReminderNotificationResponse | null>(null);
   const handledResponseKeys = useRef(new Set<string>());
 
   const refreshAppSnapshot = useCallback(async () => {
@@ -343,6 +350,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     await cancelScheduledReminderNotifications();
     await deleteStoredLocalData(database);
     handledResponseKeys.current.clear();
+    setPendingReminderResponse(null);
     setReminderRuntime({
       ...INITIAL_REMINDER_RUNTIME,
       permissionState: await getReminderPermissionState(),
@@ -352,14 +360,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
 
   /** Applies one-tap notification choices idempotently and keeps deferred prompts inside allowed hours. */
   const applyReminderResponse = useCallback(async (response: ReminderNotificationResponse) => {
-    const responseByAction: Readonly<Record<string, PromptResponse | undefined>> = {
-      [REMINDER_ACTIONS.done]: 'done',
-      [REMINDER_ACTIONS.later]: 'later',
-      [REMINDER_ACTIONS.badTime]: 'bad_time',
-      [REMINDER_ACTIONS.notToday]: 'not_today',
-    };
-    const promptResponse = responseByAction[response.actionIdentifier];
-    if (!promptResponse || !response.eventId) return;
+    if (!response.eventId) return;
+    if (opensReminderMoreChoices(response.actionIdentifier)) {
+      await dismissPresentedReminderNotification(response.eventId).catch(() => undefined);
+      setPendingReminderResponse(response);
+      return;
+    }
+    const promptResponse = getPromptResponseForReminderAction(response.actionIdentifier);
+    if (!promptResponse) return;
     const responseKey = `${response.eventId}:${response.actionIdentifier}`;
     if (handledResponseKeys.current.has(responseKey)) return;
     handledResponseKeys.current.add(responseKey);
@@ -394,6 +402,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         await storeScheduledReminder(database, { ...deferredReminder, notificationIdentifier });
       }
     }
+    await dismissPresentedReminderNotification(response.eventId).catch(() => undefined);
     const summary = await getScheduledReminderSummary();
     setReminderRuntime((current) => ({
       ...current,
@@ -402,13 +411,31 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }));
   }, [database, refreshAppSnapshot, snapshot.profile, snapshot.reminderPreferences]);
 
+  /** Converts the in-app follow-up choice back into the same idempotent response pipeline. */
+  const resolvePendingReminderMoreChoice = useCallback(async (decision: ReminderMoreDecision) => {
+    if (!pendingReminderResponse) return;
+    const response = pendingReminderResponse;
+    await applyReminderResponse({
+      ...response,
+      actionIdentifier:
+        decision === 'bad_time' ? REMINDER_ACTIONS.badTime : REMINDER_ACTIONS.notToday,
+    });
+    setPendingReminderResponse(null);
+  }, [applyReminderResponse, pendingReminderResponse]);
+
+  const dismissPendingReminderMoreChoice = useCallback(() => {
+    setPendingReminderResponse(null);
+  }, []);
+
   /** Registers foreground delivery, live actions, and the most recent cold-start response once per snapshot. */
   useEffect(() => {
     const deliverySubscription = addReminderDeliveryListener((eventId) => {
       void recordStoredPromptDelivery(database, eventId);
     });
     const responseSubscription = addReminderResponseListener((response) => {
-      void applyReminderResponse(response);
+      void Promise.resolve()
+        .then(() => applyReminderResponse(response))
+        .finally(clearLastReminderResponse);
     });
     const lastResponse = getLastReminderResponse();
     if (lastResponse) {
@@ -432,6 +459,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       nextReminderAt: reminderRuntime.nextReminderAt,
       isReminderSyncing: reminderRuntime.isSyncing,
       reminderErrorMessage: reminderRuntime.errorMessage,
+      pendingReminderMoreChoice: pendingReminderResponse
+        ? { title: pendingReminderResponse.title, body: pendingReminderResponse.body }
+        : null,
       completeOnboarding,
       updateTodayEnergy,
       completePlanItem,
@@ -443,6 +473,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      resolvePendingReminderMoreChoice,
+      dismissPendingReminderMoreChoice,
       exportLocalData,
       deleteAllLocalData,
     }),
@@ -458,10 +490,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       saveWeeklyReflection,
       resolveAdaptation,
       reminderRuntime,
+      pendingReminderResponse,
       requestReminderPermissionAndEnable,
       saveReminderPreferences,
       pauseRemindersForToday,
       setRemindersEnabled,
+      resolvePendingReminderMoreChoice,
+      dismissPendingReminderMoreChoice,
       exportLocalData,
       deleteAllLocalData,
     ],

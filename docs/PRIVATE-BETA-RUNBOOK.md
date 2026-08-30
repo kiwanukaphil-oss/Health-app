@@ -16,7 +16,7 @@ Validate that Little Gains is dependable, understandable, accessible, and genuin
 - [x] Large text through 150% and reduced-motion behavior are checked on the current Android target.
 - [x] Device-level TalkBack smoke, high contrast, touch targets, and practical one-handed reachability are checked on the current Android target.
 - [ ] A blind or low-vision tester validates TalkBack spoken output and gesture usability without guidance.
-- [ ] Notification permission denial, quiet hours, pause, Later, Bad time, Not today, and restart recovery pass.
+- [x] Notification permission denial, quiet hours, pause, Later, Bad time, Not today, and restart recovery pass.
 - [x] Data export opens a user-controlled share sheet and excludes keys and notification identifiers.
 - [x] Confirmed deletion cancels reminders, clears app-owned data, and returns to onboarding.
 - [ ] At least one supported iOS device completes the core journey before the pilot includes iOS users.
@@ -71,7 +71,7 @@ Do not collect free-text health histories, calendar content, employer details, o
 
 | Platform | Minimum coverage | Status |
 | --- | --- | --- |
-| Android current target | Connected Samsung release build, upgrade, restart, notification actions | In progress |
+| Android current target | Connected Samsung release build, upgrade, restart, notification actions | Notification matrix passed; broader beta checks pending |
 | Android supported floor | Android 7/API 24 fresh install and core journey | Pending |
 | Android accessibility | TalkBack, large text, reduced motion, high contrast, one-handed use | Device checks pass; human TalkBack validation pending |
 | iOS supported floor | iOS 16.4+ fresh install, VoiceOver, notifications, export | Pending external device/build |
@@ -88,6 +88,10 @@ On 29 August 2026, the production release build passed large-text checks at 130%
 On 30 August 2026, Samsung TalkBack was enabled and confirmed as the bound spoken-feedback service. Today and Guided Activity exposed meaningful control labels, the guided flow opened correctly, and measured controls were at least 48 dp on Today, Guided Activity, and You. Android high-contrast text rendered without clipping or overlap. Bottom navigation and primary actions remained in the lower reachable region, while deeper You actions moved into that region after a normal scroll. TalkBack and high-contrast settings were restored to their original disabled state afterward. A human TalkBack spoken-output and gesture-usability session remains required.
 
 The same audit found that the light-theme amber accent provided only 2.33:1 to 2.69:1 contrast on its surfaces. The accent was darkened while preserving its warm tone; its lowest text contrast is now 4.69:1. Automated coverage now enforces at least 4.5:1 across 24 semantic foreground/background combinations in the light and dark themes.
+
+On 30 August 2026, an isolated `.qa` release profile passed notification permission denial, full-day quiet hours, restoration of the default quiet window, Pause for today, Later, Bad time, and restart recovery on the connected Samsung device. Pausing removed the two remaining Sunday prompts, moved the next prompt to Monday, and restored the same 10-reminder queue after force-stop and relaunch. The pass found and corrected a stale reminder-settings draft that could turn reminders off when quiet hours were saved immediately after enabling them. A regression test now preserves the live enabled and pause controls when editable reminder choices are saved.
+
+On 30 August 2026, the Android action design was reduced to the three reliably visible shortcuts: Done, Later, and More. More opened a calm in-app sheet containing Bad time and Not today while preserving the reminder context. Not today dismissed the original notification without creating another prompt; Bad time dismissed it and delivered the deferred prompt with the calmer-time message. Force-stop and relaunch did not reopen a stale response sheet. The notification entry gate is complete on the current Samsung target. The disposable QA package and timing instrumentation were removed before the production build was restored.
 
 ## Performance budgets to validate
 

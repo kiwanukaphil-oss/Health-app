@@ -5,9 +5,33 @@ import { useColorScheme } from 'react-native';
 import AppTabs from '@/components/app-tabs';
 import { Colors } from '@/constants/theme';
 import { AppDatabaseProvider } from '@/data/database/database-provider';
+import { ReminderMoreActionsModal } from '@/features/reminders/reminder-more-actions-modal';
+import { useAppData } from '@/state/app-data-context';
 import { AppDataProvider } from '@/state/app-data-provider';
 
 SplashScreen.preventAutoHideAsync();
+
+/** Places app-wide notification follow-up UI above every native tab destination. */
+function AppExperience() {
+  const {
+    pendingReminderMoreChoice,
+    resolvePendingReminderMoreChoice,
+    dismissPendingReminderMoreChoice,
+  } = useAppData();
+
+  return (
+    <>
+      <AppTabs />
+      {pendingReminderMoreChoice ? (
+        <ReminderMoreActionsModal
+          choice={pendingReminderMoreChoice}
+          onClose={dismissPendingReminderMoreChoice}
+          onRespond={resolvePendingReminderMoreChoice}
+        />
+      ) : null}
+    </>
+  );
+}
 
 /** Composes the global theme, encrypted database lifecycle, and app-wide navigation shell. */
 export default function RootLayout() {
@@ -32,7 +56,7 @@ export default function RootLayout() {
     <AppDatabaseProvider>
       <AppDataProvider>
         <ThemeProvider value={navigationTheme}>
-          <AppTabs />
+          <AppExperience />
         </ThemeProvider>
       </AppDataProvider>
     </AppDatabaseProvider>
